@@ -211,8 +211,8 @@ The baseline's structural failure is visible in the `Evidence_Based_Analysis` ro
 ![Confusion Matrix](results/confusion_matrix.png)
 
 ```
-                          Predicted
-                    EBA    IO    NI   LQM
+                    Predicted
+               EBA    IO    NI   LQM
 Actual  EBA  [  9    0    0    0  ]
         IO   [  3   14    0    1  ]
         NI   [  1    0    9    0  ]
