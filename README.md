@@ -14,6 +14,12 @@ This community is an ideal fit for a classification task for several reasons. Fi
 
 ---
 
+## Project Architecture
+
+![Project Architecture](scripts/Repo-Architecture.png)
+
+---
+
 ## Label Taxonomy
 
 Four mutually exclusive labels were defined. Every post in the dataset can be assigned to exactly one.
@@ -116,6 +122,12 @@ The phrase "tells me" signals personal interpretation, but "three consecutive qu
 > "Goldman raises MSFT price target to $500. This signals institutional confidence is accelerating ahead of the AI capex cycle."
 
 The first clause is News; the second is Analysis. The rule is to label by dominant purpose. Here, the analytical framing ("this signals…") is the thesis and the Goldman action is merely the supporting premise. Labeled **`Evidence_Based_Analysis`**.
+
+---
+
+## Fine-Tuned Model Architecture
+
+![Model Architecture](scripts/Model-Architecture.png)
 
 ---
 
