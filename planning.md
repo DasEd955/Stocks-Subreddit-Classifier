@@ -9,7 +9,7 @@
 
 The r/stocks subreddit is an active community where retail investors, analysts, and casual observers share stock picks, market commentary, earnings reactions, and economic analysis. It was selected because it presents a genuine & consequential classification challenge: the ability to distinguish evidence-based reasoning from emotional speculation is not merely academic; it maps directly to signal quality in financial decision-making from individual retail investors to large institutional firms.
 
-This community is an ideal fit for a classification task for several reasons. First, the discourse is structurally varied: the same ticker symbol might generate a peer-reviewed quality earnings breakdown, a prediction based off of gut feelings, a Reuters headline repost, and a pump-and-dump style hype post all within the same thread. Second, the stakes attached to financial content make the quality distinctions matter in ways that sports or entertainment subreddits do not. Third, since hedge funds & quantitative research firms already deploy alternative data pipelines that scrape social media for sentiment signals, this classifier is a small-scale, interpretable proof-of-concept for a real institutional use case. The presence of both bullish & bearish actors, the influence of macroeconomic events (Fed rate decisions, earnings seasons), and recent catalysts like AI-related equities & political market volatility all ensure that no single discourse pattern dominates; making the label boundaries both necessary and non-trivial to apply.
+This community is an ideal fit for a classification task for several reasons. First, the discourse is structurally varied: the same ticker symbol might generate a peer reviewed quality earnings breakdown, a prediction based off of gut feelings, a Reuters headline repost, and a pump-and-dump style hype post all within the same thread. Second, the stakes attached to financial content make the quality distinctions matter in ways that sports or entertainment subreddits do not. Third, since hedge funds & quantitative research firms already deploy alternative data pipelines that scrape social media for sentiment signals, this classifier is a small scale, interpretable proof-of-concept for a real institutional use case. The presence of both bullish & bearish actors, the influence of macroeconomic events (Fed rate decisions, earnings seasons), and recent catalysts like AI-related equities & political market volatility all ensure that no single discourse pattern dominates; making the label boundaries both necessary and nontrivial to apply.
 
 ---
 
@@ -137,7 +137,7 @@ The first clause is News; the second is Analysis. **Rule:** Label by the dominan
 
 `Interpretive_Opinion` and `News_Information` were the easiest labels to find — opinion posts are the default mode of social media commentary, and news reposts are extremely common on financial subreddits. `Low_Quality_Misleading` examples were also abundant, though they required more judgment to distinguish from strong opinions.
 
-`Evidence_Based_Analysis` proved the hardest to find in sufficient quantity. Genuinely evidence-grounded posts are rarer in retail-investor communities than casual observation suggests — most posts that look analytical on the surface fail the "could the evidence stand alone" test upon closer inspection.
+`Evidence_Based_Analysis` proved the hardest to find in sufficient quantity. Genuinely evidence-grounded posts are rarer in retail-investor communities than casual observation suggests. Most posts that look analytical on the surface fail the "could the evidence stand alone" test upon closer inspection.
 
 **Imbalance resolution:** Rather than discarding examples from overrepresented classes (which would waste real data and reduce total signal), class weights were computed using inverse frequency and applied to the `CrossEntropyLoss` function during fine-tuning. This mathematically equalizes the model's learning pressure across labels without altering the dataset distribution:
 
@@ -160,22 +160,22 @@ Accuracy alone is insufficient for this task. Here is the full evaluation framew
 ### Primary Metrics
 
 **Macro F1 Score**
-The single most important metric for this classifier. Macro F1 averages F1 across all four classes with equal weight, meaning it holds the model accountable for performance on underrepresented labels (`Evidence_Based_Analysis`, `Low_Quality_Misleading`) just as much as the majority class. For a financial tool, this matters: a model that achieves 85% accuracy by correctly labeling only `Interpretive_Opinion` posts — and never correctly identifying `Evidence_Based_Analysis` — provides near-zero investment research value. Macro F1 surfaces that failure.
+The single most important metric for this classifier. Macro F1 averages F1 across all four classes with equal weight, meaning it holds the model accountable for performance on underrepresented labels (`Evidence_Based_Analysis`, `Low_Quality_Misleading`) just as much as the majority class. For a financial tool, this matters: a model that achieves 85% accuracy by correctly labeling only `Interpretive_Opinion` posts, and never correctly identifying `Evidence_Based_Analysis`, provides near-zero investment research value. Macro F1 surfaces that failure.
 
 **Per-class Precision, Recall, and F1**
 Different failure modes carry different costs depending on the downstream use case:
 
-- **Precision on `Evidence_Based_Analysis`:** A false positive here means mislabeling an opinion as analysis — an investor who trusts the classifier would read subjective content as if it were evidence-backed. In an investment filtering context, this is analogous to a false signal: costly.
+- **Precision on `Evidence_Based_Analysis`:** A false positive here means mislabeling an opinion as analysis. An investor who trusts the classifier would read subjective content as if it were evidence-backed. In an investment filtering context, this is analogous to a false signal: costly.
 - **Recall on `Low_Quality_Misleading`:** A false negative here means letting misleading content pass undetected. In a market surveillance or content moderation context, missing hype posts is more dangerous than occasionally flagging a borderline opinion.
 - **Recall on `News_Information`:** High recall ensures time-sensitive factual updates are not misclassified as opinion and deprioritized by an investor using the tool as a feed filter.
 
 **Confusion Matrix**
-Essential for identifying systematic boundary confusion. The confusion matrix reveals which label pairs the model conflates most frequently — in this project, the expected hard boundary is `Interpretive_Opinion` ↔ `Evidence_Based_Analysis`, because many posts sit near that line. A confusion matrix makes this pattern visible and quantifiable.
+Essential for identifying systematic boundary confusion. The confusion matrix reveals which label pairs the model conflates most frequently. In this project, the expected hard boundary is `Interpretive_Opinion` ↔ `Evidence_Based_Analysis`, because many posts sit near that line. A confusion matrix makes this pattern visible and quantifiable.
 
 ### Secondary Metrics
 
 **Overall Accuracy**
-Reported as a reference baseline, but not the primary decision metric. Given class imbalance (Interpretive_Opinion at 37.4%), a model that predicts only the majority class would achieve ~37% accuracy — informative as a floor, not a ceiling.
+Reported as a reference baseline, but not the primary decision metric. Given class imbalance (Interpretive_Opinion at 37.4%), a model that predicts only the majority class would achieve ~37% accuracy. This is informative as a floor, not a ceiling.
 
 **Baseline Comparison (Zero-shot Groq llama-3.3-70b-versatile)**
 The fine-tuned model is benchmarked against a zero-shot LLM baseline using the same test set. This comparison answers the question that actually matters for deployment: *did task-specific fine-tuning outperform what a general-purpose LLM could do with well-crafted prompting?* If the answer is no, the fine-tuning pipeline needs to be reconsidered. If yes, the improvement quantifies the value of labeled data and supervised training.
@@ -186,7 +186,7 @@ The fine-tuned model is benchmarked against a zero-shot LLM baseline using the s
 
 ### Minimum Viable Performance (MVP Threshold)
 
-For this classifier to be genuinely useful as a financial content filtering tool, the following minimum thresholds must be met on the held-out test set:
+For this classifier to be genuinely useful as a financial content filtering tool, the following minimum thresholds must be met on the held out test set:
 
 | Metric | Minimum Threshold | Rationale |
 |--------|-------------------|-----------|
@@ -211,7 +211,7 @@ For this classifier to be genuinely useful as a financial content filtering tool
 
 ### The Real Deployment Case: Financial Analyst Applications
 
-This project is deliberately designed as a small-scale proof-of-concept for approaches already used by institutional investors. The following use cases represent where a production-grade version of this classifier would create measurable value:
+This project is deliberately designed as a small scale proof-of-concept for approaches already used by institutional investors. The following use cases represent where a production-grade version of this classifier would create measurable value:
 
 **1. Investment Research Filtering**
 
@@ -256,13 +256,13 @@ The value of this project is in demonstrating the framework and validating that 
 
 ## 7. AI Tool Plan
 
-This project's workflow is annotation-heavy and evaluation-driven rather than implementation-heavy, so AI tools are used at three specific points where they add the most leverage: stress-testing label definitions before any annotation begins, and identifying error patterns after the model is trained. Annotation itself was kept fully manual by deliberate choice.
+This project's workflow is annotation heavy and evaluation-driven rather than implementation heavy, so AI tools are used at three specific points where they add the most leverage: stress testing label definitions before any annotation begins, and identifying error patterns after the model is trained. Annotation itself was kept fully manual by deliberate choice.
 
 ---
 
 ### 7.1 Label Stress-Testing
 
-**Purpose:** Before committing to annotating 200+ examples, use an LLM to generate adversarial boundary posts — posts that sit exactly at the edge between two labels. If the generated posts cannot be cleanly classified using the existing definitions, the definitions need tightening before annotation begins.
+**Purpose:** Before committing to annotating 200+ examples, use an LLM to generate adversarial boundary posts. These are posts that sit exactly at the edge between two labels. If the generated posts cannot be cleanly classified using the existing definitions, the definitions need tightening before annotation begins.
 
 **Prompt used (given to Claude):** The four label definitions and edge case rules from Section 2 and 3 were provided verbatim, with the instruction: *"Generate 5–10 posts that sit at the hardest possible boundary between two labels. Do not make them obviously one or the other."*
 
@@ -272,11 +272,11 @@ This project's workflow is annotation-heavy and evaluation-driven rather than im
 
 > "Microsoft's cloud segment has been growing faster than AWS for three consecutive quarters, which tells me the enterprise migration cycle still has runway."
 
-→ `Evidence_Based_Analysis`. "Three consecutive quarters" is a specific, verifiable trend; the conclusion is derived from the cited pattern, not asserted independently. The phrase "tells me" is opinion framing over an evidence-based inference — apply the stripping rule: remove "tells me" and the claim still stands.
+→ `Evidence_Based_Analysis`. "Three consecutive quarters" is a specific, verifiable trend; the conclusion is derived from the cited pattern, not asserted independently. The phrase "tells me" is opinion framing over an evidence-based inference. So, apply the stripping rule: remove "tells me" and the claim still stands.
 
-> "AI spending feels like it's plateauing — the hyperscalers are still growing capex but the marginal returns look like they're compressing."
+> "AI spending feels like it's plateauing. The hyperscalers are still growing capex but the marginal returns look like they're compressing."
 
-→ `Interpretive_Opinion`. "Feels like" and "looks like" signal unverified intuition. "Marginal returns compressing" is not cited with data — it is asserted as felt observation. Strip the framing: the residual claim is not independently supportable.
+→ `Interpretive_Opinion`. "Feels like" and "looks like" signal unverified intuition. "Marginal returns compressing" is not cited with data, it is asserted as felt observation. Strip the framing: the residual claim is not independently supportable.
 
 > "Meta's Reality Labs has lost over $40B since 2020. At some point the market is going to stop giving Zuckerberg a pass on this."
 
@@ -284,7 +284,7 @@ This project's workflow is annotation-heavy and evaluation-driven rather than im
 
 *News ↔ Analysis boundary:*
 
-> "Nvidia just reported another blowout quarter. $30B revenue, 122% YoY growth. This changes the competitive calculus for AMD — their data center roadmap looks underpowered by comparison."
+> "Nvidia just reported another blowout quarter. $30B revenue, 122% YoY growth. This changes the competitive calculus for AMD. Their data center roadmap looks underpowered by comparison."
 
 → `Evidence_Based_Analysis`. The first two sentences are news; the third is the dominant purpose of the post and constitutes analysis (draws an implication about a competitor). The analytical framing is the thesis; the news figures are the supporting premise.
 
@@ -304,9 +304,9 @@ This project's workflow is annotation-heavy and evaluation-driven rather than im
 
 > "Anyone who bought ARKK in 2021 deserves what happened to them. Cathie Wood is a fraud and I have zero sympathy."
 
-→ `Interpretive_Opinion`. The "fraud" characterization is strong and potentially unfounded, but the post is retrospective commentary rather than a call to financial action. It does not contain a market prediction or attempt to move someone's trading behavior. It is opinionated, not misleading in the technical sense. Stays Opinion — but sits close to the line.
+→ `Interpretive_Opinion`. The "fraud" characterization is strong and potentially unfounded, but the post is retrospective commentary rather than a call to financial action. It does not contain a market prediction or attempt to move someone's trading behavior. It is opinionated, not misleading in the technical sense. Stays Opinion but sits close to the line.
 
-**Outcome of stress-testing:** The definitions held. All generated boundary posts could be resolved using the existing decision rules without requiring new rules or definition revisions. The most useful finding was that "opinion framing over an evidence-based inference" (e.g., "tells me," "I think," "seems like") does not automatically make a post Opinion — the stripping test is the correct tool.
+**Outcome of stress-testing:** The definitions held. All generated boundary posts could be resolved using the existing decision rules without requiring new rules or definition revisions. The most useful finding was that "opinion framing over an evidence-based inference" (e.g., "tells me," "I think," "seems like") does not automatically make a post Opinion. The stripping test is the correct tool.
 
 ---
 
@@ -318,11 +318,11 @@ Every row in [data.csv](data/data.csv) was labeled by hand, without LLM pre-labe
 
 **Why manual-only annotation was chosen:**
 
-1. **Label quality over speed.** The label definitions were designed around subtle structural distinctions (evidence that stands alone vs. opinion framing, reporting vs. implication) that an LLM will conflate in predictable ways — particularly at the Analysis/Opinion boundary. Pre-labeling with an LLM and then reviewing for disagreements risks anchoring the annotator to the LLM's decision, which undermines the independence of the ground truth.
+1. **Label quality over speed.** The label definitions were designed around subtle structural distinctions (evidence that stands alone vs. opinion framing, reporting vs. implication) that an LLM will conflate in predictable ways, particularly at the Analysis/Opinion boundary. Pre-labeling with an LLM and then reviewing for disagreements risks anchoring the annotator to the LLM's decision, which undermines the independence of the ground truth.
 
 2. **The dataset is small enough.** At 310 examples, manual annotation was achievable. LLM-assisted pre-labeling is a productivity tool for datasets in the thousands; using it here would introduce annotation bias without meaningful time savings.
 
-3. **Single-annotator ground truth requires extra discipline.** Without a second annotator to check against (inter-annotator agreement was not computed for this project), the labeled dataset is entirely a reflection of one person's application of the definitions. Introducing an LLM pre-labeling pass would make the ground truth a reflection of *the LLM's priors filtered through one person's review* — a weaker epistemic position than direct human annotation.
+3. **Single-annotator ground truth requires extra discipline.** Without a second annotator to check against (inter-annotator agreement was not computed for this project), the labeled dataset is entirely a reflection of one person's application of the definitions. Introducing an LLM pre-labeling pass would make the ground truth a reflection of *the LLM's priors filtered through one person's review*, a weaker epistemic position than direct human annotation.
 
 **Limitation to acknowledge:** Single-annotator datasets carry consistency risk. The annotator's application of the Analysis/Opinion boundary may have drifted across 310 examples, particularly for the hardest edge cases. Without inter-annotator agreement metrics, there is no way to quantify this drift. This is a structural limitation of the dataset and should be disclosed in any deployment context.
 
@@ -332,19 +332,19 @@ Every row in [data.csv](data/data.csv) was labeled by hand, without LLM pre-labe
 
 ### 7.3 Failure Analysis
 
-**Purpose:** After training, feed the model's 7 misclassifications to an LLM and ask it to identify systematic patterns before writing the evaluation narrative. The goal is to separate model-specific failure modes from annotation noise — and to surface patterns that are not obvious from looking at individual wrong predictions in isolation.
+**Purpose:** After training, feed the model's 7 misclassifications to an LLM and ask it to identify systematic patterns before writing the evaluation narrative. The goal is to separate model specific failure modes from annotation noise, and to surface patterns that are not obvious from looking at individual wrong predictions in isolation.
 
 **Process:**
 
 Each of the 7 wrong predictions (predicted label, true label, and post text) will be provided to Claude with the following prompt:
 
-> *"Here are 7 posts that a fine-tuned DistilBERT classifier got wrong, with the predicted and true labels. Given these label definitions [definitions pasted], identify any systematic patterns in the errors. What is the model actually learning that causes these specific confusions? Be specific — don't just list the examples back."*
+> *"Here are 7 posts that a fine-tuned DistilBERT classifier got wrong, with the predicted and true labels. Given these label definitions [definitions pasted], identify any systematic patterns in the errors. What is the model actually learning that causes these specific confusions? Be specific, don't just list the examples back."*
 
 **What to look for in the LLM's response:**
 
 - Whether the errors cluster around a specific label boundary (expected: `Interpretive_Opinion` ↔ `Evidence_Based_Analysis`)
 - Whether the errors are driven by surface features (analytical-sounding vocabulary, present tense vs. reporting tense) rather than structural properties
-- Whether short posts are disproportionately misclassified — the model may rely on length as a proxy for evidence density
+- Whether short posts are disproportionately misclassified. The model may rely on length as a proxy for evidence density
 - Whether the model conflates persuasive tone with Low Quality, or analytical vocabulary with Analysis
 
 **How to verify the patterns independently:**
@@ -374,7 +374,7 @@ LLM-identified patterns will be checked against the confusion matrix and the ful
 
 ## 8. Stretch Feature: Confidence Calibration
 
-**Purpose:** A confidence score is only useful if it is *meaningful* — i.e., the model's stated certainty tracks its actual correctness. A well-calibrated model that says "90% confident" should be right ~90% of the time, and a "60% confident" prediction should be right ~60% of the time. If confidence does not track accuracy, then the softmax probability is just a number and cannot be used downstream (e.g., to route low-confidence posts to human review in the deployment cases described in Section 6).
+**Purpose:** A confidence score is only useful if it is *meaningful*, i.e., the model's stated certainty tracks its actual correctness. A well-calibrated model that says "90% confident" should be right ~90% of the time, and a "60% confident" prediction should be right ~60% of the time. If confidence does not track accuracy, then the softmax probability is just a number and cannot be used downstream (e.g., to route low-confidence posts to human review in the deployment cases described in Section 6).
 
 **The question this answers:** *Does a 90%-confident prediction actually get it right more often than a 60%-confident one?* This is the difference between a model whose confidence is actionable and one whose confidence is decorative.
 
@@ -388,7 +388,7 @@ The fine-tuned model's softmax probabilities on the 47-example test set (`ft_pro
 
 3. **Expected Calibration Error (ECE).** A single summary number: the average gap between confidence and accuracy across bins, weighted by bin population. Lower is better; ECE near 0 means stated confidence ≈ realized accuracy. A reliability diagram (confidence vs. accuracy, with the diagonal as perfect calibration) is plotted and saved to `results/calibration_curve.png`.
 
-**Honest caveat to report:** With only 47 test examples, per-bin counts are small and ECE is a noisy estimate. The finding will be framed as directional evidence (does confidence separate right from wrong?) rather than a precise calibration certificate, and the small-sample limitation will be disclosed alongside the numbers.
+**Honest caveat to report:** With only 47 test examples, per-bin counts are small and ECE is a noisy estimate. The finding will be framed as directional evidence (does confidence separate right from wrong?) rather than a precise calibration certificate, and the small sample limitation will be disclosed alongside the numbers.
 
 **Verification:** The bin accuracies and the correct-vs-incorrect confidence gap are computed directly from the same `ft_probs`/`ft_pred_ids`/`ft_true_ids` arrays used for the main evaluation, so they are internally consistent with the reported 85.1% accuracy.
 
@@ -396,7 +396,7 @@ The fine-tuned model's softmax probabilities on the 47-example test set (`ft_pro
 
 ## 9. Stretch Feature: Error Pattern Analysis
 
-**Purpose:** Go beyond the existing per-error narrative (Section 7.3 lists the 7 individual misclassifications) and identify a *systematic, programmatically verified* pattern in the errors — a single statement of the form "the model fails specifically when X" that is backed by counting over the actual predictions, not by eyeballing examples.
+**Purpose:** Go beyond the existing per-error narrative (Section 7.3 lists the 7 individual misclassifications) and identify a *systematic, programmatically verified* pattern in the errors. A single statement of the form "the model fails specifically when X" that is backed by counting over the actual predictions, not by eyeballing examples.
 
 **What is already implemented (baseline to build on):**
 - Section 4 of the notebook prints all 7 wrong predictions with confidence scores.
@@ -407,21 +407,21 @@ The fine-tuned model's softmax probabilities on the 47-example test set (`ft_pro
 
 1. **Error concentration by boundary.** Quantify what fraction of all errors fall on the two suspected boundaries (`Interpretive_Opinion`↔`Evidence_Based_Analysis` and `Low_Quality_Misleading`→`Interpretive_Opinion`) vs. scattered elsewhere. A high concentration is evidence of a *structural* failure mode, not noise.
 
-2. **Directionality of the Opinion/Analysis confusion.** Test whether the errors are asymmetric — i.e., the model pulls Opinion *into* Analysis far more than the reverse. Asymmetry indicates the model has a directional bias (over-applying analytical-vocabulary cues), which is a more specific finding than "it confuses these two labels."
+2. **Directionality of the Opinion/Analysis confusion.** Test whether the errors are asymmetric, i.e., the model pulls Opinion *into* Analysis far more than the reverse. Asymmetry indicates the model has a directional bias (over-applying analytical-vocabulary cues), which is a more specific finding than "it confuses these two labels."
 
-3. **Length-as-proxy hypothesis (explicit verification).** The notebook's Section 4c computes mean/median character length of correct vs. incorrect predictions. The result: misclassified posts average 777 chars vs. 2,061 for correct predictions — the hypothesis is *supported* numerically, not rejected. Shorter posts have fewer tokens to establish label-disambiguating vocabulary, so the model falls back on weaker surface signals. Length is a correlate of error but not a root cause: it is a proxy for the vocabulary sparsity that underlies the Opinion→Analysis confusion.
+3. **Length-as-proxy hypothesis (explicit verification).** The notebook's Section 4c computes mean/median character length of correct vs. incorrect predictions. The result: misclassified posts average 777 chars vs. 2,061 for correct predictions. The hypothesis is *supported* numerically, not rejected. Shorter posts have fewer tokens to establish label-disambiguating vocabulary, so the model falls back on weaker surface signals. Length is a correlate of error but not a root cause: it is a proxy for the vocabulary sparsity that underlies the Opinion→Analysis confusion.
 
-4. **Confidence signature of errors.** Cross-link to the calibration feature: test whether errors cluster at low confidence (the model "knows" when it is unsure). If the misclassifications are disproportionately low-confidence, that is itself a systematic and *useful* pattern — it means a confidence threshold could catch most errors.
+4. **Confidence signature of errors.** Cross-link to the calibration feature: test whether errors cluster at low confidence (the model "knows" when it is unsure). If the misclassifications are disproportionately low confidence, that is itself a systematic and *useful* pattern. It means a confidence threshold could catch most errors.
 
-**The systematic pattern to be stated (hypothesis, to be confirmed by the code):** *The model's errors are not random — they concentrate on a single structural boundary (Opinion vs. Analysis), are directionally biased (Opinion→Analysis), and occur at systematically lower confidence than its correct predictions. The model is reliably uncertain exactly where it is wrong.* The notebook output will confirm or revise this statement with hard numbers.
+**The systematic pattern to be stated (hypothesis, to be confirmed by the code):** *The model's errors are not random. They concentrate on a single structural boundary (Opinion vs. Analysis), are directionally biased (Opinion→Analysis), and occur at systematically lower confidence than its correct predictions. The model is reliably uncertain exactly where it is wrong.* The notebook output will confirm or revise this statement with hard numbers.
 
-**Verification discipline:** Every claimed pattern is computed from `ft_pred_ids`/`ft_true_ids`/`ft_probs`/`test_df` directly and reported as confirmed or rejected by the actual numbers — including patterns where the data contradicts the framing in Section 7.3 (e.g., the length hypothesis turned out to be *supported* by the numbers, not rejected, despite an earlier incorrect claim in the README).
+**Verification discipline:** Every claimed pattern is computed from `ft_pred_ids`/`ft_true_ids`/`ft_probs`/`test_df` directly and reported as confirmed or rejected by the actual numbers. This includes patterns where the data contradicts the framing in Section 7.3 (e.g., the length hypothesis turned out to be *supported* by the numbers, not rejected, despite an earlier incorrect claim in the README).
 
 ---
 
 ## 10. Stretch Feature: Deployed Interface
 
-**Purpose:** Make the fine-tuned classifier usable by a non-technical person without opening the notebook. A deployed interface closes the loop on the deployment cases in Section 6 (Investment Research Filtering, content triage): an analyst pastes a Reddit post, presses one button, and gets back the discourse-quality label plus the model's confidence — the exact human-in-the-loop interaction a production triage tool would expose.
+**Purpose:** Make the fine-tuned classifier usable by a non-technical person without opening the notebook. A deployed interface closes the loop on the deployment cases in Section 6 (Investment Research Filtering, content triage): an analyst pastes a Reddit post, presses one button, and gets back the discourse-quality label plus the model's confidence. This is the exact human-in-the-loop interaction a production triage tool would expose.
 
 **The question this answers:** *Can the trained model be invoked on a brand-new, never-seen post and return an actionable label + confidence, outside the training/eval harness?* The notebook only ever runs the model on the locked 47-example test set; this proves the saved artifact works as a standalone predictor.
 
@@ -431,16 +431,16 @@ A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the
 
 1. **The predicted label** — `argmax` over the four classes, mapped to its string name via the model's own `id2label` (the source of truth baked into `config.json`).
 2. **The confidence** — the max softmax probability, shown as a Gradio `Label` with the full probability distribution across all four classes so the user sees not just the winner but how close the runner-up was (directly relevant to the Opinion↔Analysis boundary failure documented in Section 9).
-3. **A triage hint** — because the calibration analysis (Section 8) established that errors concentrate below ~0.60 confidence, the interface flags low-confidence predictions as "route to human review," operationalizing the triage threshold rather than just reporting a number.
+3. **A triage hint** — since the calibration analysis (Section 8) established that errors concentrate below ~0.60 confidence, the interface flags low-confidence predictions as "route to human review," operationalizing the triage threshold rather than just reporting a number.
 
 **Design decisions:**
 
-- **Inference parity with training.** The app reuses `max_length=256` and reads labels from `id2label` in the saved config, so the deployed predictions are identical to what the notebook would produce — no silent drift between eval and deployment.
-- **Model path is configurable and auto-resolving.** The trained model directory (`model/takemeter-model`) is gitignored (it is a large binary artifact), so the app does not assume a fixed file. It reads an optional `TAKEMETER_MODEL_DIR` environment variable, defaults to the local checkpoint, and if pointed at the parent `takemeter-model` directory it auto-selects the latest `checkpoint-*` subfolder. This keeps the committed code runnable for anyone who has trained (or downloaded) the model without committing the weights themselves.
-- **CPU-friendly.** The app runs the model on CPU by default (DistilBERT is small enough for sub-second single-post inference), so it does not require a GPU to demo.
+- **Inference parity with training.** The app reuses `max_length=256` and reads labels from `id2label` in the saved config, so the deployed predictions are identical to what the notebook would produce. No silent drift between eval and deployment.
+- **Model path is configurable and auto-resolving.** The trained model directory (`model/takemeter-model`) is gitignored (it is a large binary artifact), so the app does not assume a fixed file. It reads an optional `TAKEMETER_MODEL_DIR` environment variable, defaults to the local checkpoint, and if pointed at the parent `takemeter-model` directory it auto selects the latest `checkpoint-*` subfolder. This keeps the committed code runnable for anyone who has trained (or downloaded) the model without committing the weights themselves.
+- **CPU-friendly.** The app runs the model on CPU by default (DistilBERT is small enough for sub-second single post inference), so it does not require a GPU to demo.
 
-**Honest caveat to report:** The interface inherits every limitation of the underlying model documented in Sections 8–9 and the README reflection — in particular the directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. The confidence-based triage hint is the interface's way of surfacing that uncertainty rather than hiding it behind a single label.
+**Honest caveat to report:** The interface inherits every limitation of the underlying model documented in Sections 8–9 and the README reflection. In particular, the directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. The confidence-based triage hint is the interface's way of surfacing that uncertainty rather than hiding it behind a single label.
 
-**Verification:** The app was verified by loading the saved best checkpoint (`checkpoint-56`, epoch 4, validation accuracy 0.848 — the `load_best_model_at_end` selection) and classifying the canonical example posts end-to-end. The model loads and runs to completion on CPU, and the interface faithfully reports the model's actual `argmax` label and max-softmax confidence.
+**Verification:** The app was verified by loading the saved best checkpoint (`checkpoint-56`, epoch 4, validation accuracy 0.848, the `load_best_model_at_end` selection) and classifying the canonical example posts end-to-end. The model loads and runs to completion on CPU, and the interface faithfully reports the model's actual `argmax` label and max-softmax confidence.
 
-**A finding surfaced during verification (reported honestly, not hidden):** the *deployed* predictions on the README "Sample Classifications" posts do **not** all match the high-confidence labels printed in that table (e.g. the NVDA data-center post is predicted `Interpretive_Opinion` at 0.54, not `Evidence_Based_Analysis` at 0.94). This is consistent with the model's *own* calibration data already documented in Section 8 / the README — mean confidence on correct predictions is only ~0.57 and ECE is 0.287, so the model is poorly calibrated and rarely produces the 0.9+ confidences that table reports. The sample-table numbers appear to be illustrative rather than reproduced from this checkpoint. The interface exposes the model's true (low, sometimes wrong) confidence rather than the aspirational table values — which is the entire point of shipping the calibration-based triage hint. Running instructions are documented in the README.
+**A finding surfaced during verification (reported honestly, not hidden):** the *deployed* predictions on the README "Sample Classifications" posts do **not** all match the high confidence labels printed in that table (e.g. the NVDA data center post is predicted `Interpretive_Opinion` at 0.54, not `Evidence_Based_Analysis` at 0.94). This is consistent with the model's *own* calibration data already documented in Section 8 / the README. Mean confidence on correct predictions is only ~0.57 and ECE is 0.287, so the model is poorly calibrated and rarely produces the 0.9+ confidences that table reports. The sample table numbers appear to be illustrative rather than reproduced from this checkpoint. The interface exposes the model's true (low, sometimes wrong) confidence rather than the aspirational table values, which is the entire point of shipping the calibration-based triage hint. Running instructions are documented in the README.

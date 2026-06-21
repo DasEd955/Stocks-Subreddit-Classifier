@@ -1,6 +1,6 @@
 # TakeMeter: r/stocks Discourse Quality Classifier
 
-A fine-tuned DistilBERT classifier that labels Reddit r/stocks posts into four discourse quality categories, benchmarked against a zero-shot Groq LLaMA-3.3 baseline. Final test accuracy: **85.1%** (fine-tuned) vs. **80.9%** (baseline).
+A fine-tuned DistilBERT classifier that labels Reddit r/stocks posts into four discourse quality categories, benchmarked against a zero-shot Groq LLaMA-3.3 baseline. Final test accuracy: **85.1%** (fine-tuned) vs. **80.9%** (baseline zero-shot).
 
 ---
 
@@ -10,7 +10,7 @@ A fine-tuned DistilBERT classifier that labels Reddit r/stocks posts into four d
 
 The r/stocks subreddit is an active community where retail investors, analysts, and casual observers share stock picks, market commentary, earnings reactions, and economic analysis. It was selected because it presents a genuine & consequential classification challenge: the ability to distinguish evidence-based reasoning from emotional speculation is not merely academic; it maps directly to signal quality in financial decision-making from individual retail investors to large institutional firms.
 
-This community is an ideal fit for a classification task for several reasons. First, the discourse is structurally varied: the same ticker symbol might generate a peer-reviewed quality earnings breakdown, a prediction based off of gut feelings, a Reuters headline repost, and a pump-and-dump style hype post — all within the same thread. Second, the stakes attached to financial content make the quality distinctions matter in ways that sports or entertainment subreddits do not. Third, since hedge funds & quantitative research firms already deploy alternative data pipelines that scrape social media for sentiment signals, this classifier is a small-scale, interpretable proof-of-concept for a real institutional use case. The presence of both bullish & bearish actors, the influence of macroeconomic events (Fed rate decisions, earnings seasons), and recent catalysts like AI-related equities & political market volatility all ensure that no single discourse pattern dominates; making the label boundaries both necessary and non-trivial to apply.
+This community is an ideal fit for a classification task for several reasons. First, the discourse is structurally varied: the same ticker symbol might generate a peer-reviewed quality earnings breakdown, a prediction based off of gut feelings, a Reuters headline repost, and a pump-and-dump style hype post all within the same thread. Second, the stakes attached to financial content make the quality distinctions matter in ways that sports or entertainment subreddits do not. Third, since hedge funds & quantitative research firms already deploy alternative data pipelines that scrape social media for sentiment signals, this classifier is a small scale, interpretable proof-of-concept for a real institutional use case. The presence of both bullish & bearish actors, the influence of macroeconomic events (Fed rate decisions, earnings seasons), and recent catalysts like AI-related equities & political market volatility all ensure that no single discourse pattern dominates; making the label boundaries both necessary and nontrivial to apply.
 
 ---
 
@@ -92,28 +92,28 @@ Posts and top-level comments were manually curated from Reddit r/stocks via the 
 | Evidence_Based_Analysis | 61 | 19.7% |
 | **Total** | **310** | **100%** |
 
-`Interpretive_Opinion` and `News_Information` were the easiest labels to find — opinion posts are the default mode of social media commentary and news reposts are extremely common on financial subreddits. `Evidence_Based_Analysis` proved the hardest to collect in sufficient quantity. Genuinely evidence-grounded posts are rarer in retail-investor communities than casual observation suggests; most posts that look analytical on the surface fail the "could the evidence stand alone" test upon closer inspection.
+`Interpretive_Opinion` and `News_Information` were the easiest labels to find. Opinion posts are the default mode of social media commentary and news reposts are extremely common on financial subreddits. `Evidence_Based_Analysis` proved the hardest to collect in sufficient quantity. Genuinely evidence-grounded posts are rarer in retail investor communities than casual observation suggests; most posts that look analytical on the surface fail the "could the evidence stand alone" test upon closer inspection.
 
 ### Labeling Process
 
-All 310 examples were labeled manually by the project author without LLM pre-labeling or suggestions at annotation time. LLM-assisted pre-labeling was deliberately avoided for two reasons: (1) the Analysis/Opinion boundary is a subtle structural distinction that an LLM conflates in predictable ways, and pre-labeling risks anchoring the annotator to the LLM's decision; (2) at 310 examples, manual annotation was achievable and introducing an LLM pass would make the ground truth a reflection of the LLM's priors filtered through one person's review, which is a weaker epistemic position than direct human annotation.
+All 310 examples were labeled manually by the project author without LLM pre-labeling or suggestions at annotation time. LLM assisted pre-labeling was deliberately avoided for two reasons: (1) the Analysis/Opinion boundary is a subtle structural distinction that an LLM conflates in predictable ways, and pre-labeling risks anchoring the annotator to the LLM's decision; (2) at 310 examples, manual annotation was achievable and introducing an LLM pass would make the ground truth a reflection of the LLM's priors filtered through one person's review, which is a weaker epistemic position than direct human annotation.
 
 **Limitation:** Single-annotator datasets carry consistency risk. The annotator's application of the Analysis/Opinion boundary may have drifted across 310 examples, particularly at the hardest edge cases. Without inter-annotator agreement metrics there is no way to quantify this drift.
 
-### Three Difficult-to-Label Examples
+### Three Difficult to Label Examples
 
 **1. Opinion framing over an evidence-based inference**
-> "Microsoft's cloud segment has been growing faster than AWS for three consecutive quarters, which tells me the enterprise migration cycle still has runway."
+> "Microsoft's cloud segment has been growing faster by 21% P/E than AWS for three consecutive quarters, which tells me the enterprise migration cycle still has runway by EOY."
 
-The phrase "tells me" signals personal interpretation, but "three consecutive quarters" is a specific, verifiable trend. Applying the stripping rule — remove the opinion framing, does the claim still stand? Yes. Labeled **`Evidence_Based_Analysis`**. The "tells me" is editorial framing over an evidence-based inference, not the thesis itself.
+The phrase "tells me" signals personal interpretation, but "three consecutive quarters" is a specific, verifiable trend. Applying the stripping rule: remove the opinion framing, does the claim still stand? Yes. Labeled **`Evidence_Based_Analysis`**. The "tells me" is editorial framing over an evidence-based inference, not the thesis itself.
 
 **2. Strong opinion with rhetorical edge, no manipulative intent**
 > "Anyone who bought ARKK in 2021 deserves what happened to them. Cathie Wood is a fraud and I have zero sympathy."
 
-"Fraud" is a strong and potentially unfounded characterization, but the post is retrospective commentary rather than a call to financial action. It contains no market prediction and does not attempt to move someone's trading behavior. It is opinionated, not misleading in the technical sense. Labeled **`Interpretive_Opinion`** — sits close to the Low Quality line but does not cross the manipulation threshold.
+"Fraud" is a strong and potentially unfounded characterization, but the post is retrospective commentary rather than a call to financial action. It contains no market prediction and does not attempt to move someone's trading behavior. It is opinionated, not misleading in the technical sense. Labeled **`Interpretive_Opinion`**. It sits close to the Low Quality line but does not cross the manipulation threshold.
 
 **3. News headline with an analytical rider**
-> "Goldman raises MSFT price target to $500 — this signals institutional confidence is accelerating ahead of the AI capex cycle."
+> "Goldman raises MSFT price target to $500. This signals institutional confidence is accelerating ahead of the AI capex cycle."
 
 The first clause is News; the second is Analysis. The rule is to label by dominant purpose. Here, the analytical framing ("this signals…") is the thesis and the Goldman action is merely the supporting premise. Labeled **`Evidence_Based_Analysis`**.
 
@@ -154,11 +154,11 @@ Class weights:
   News_Information:         1.1923
 ```
 
-This penalizes the model more heavily for misclassifying underrepresented classes, preserving all 310 samples while correcting for the skew — no data was deleted or manually resampled.
+This penalizes the model more heavily for misclassifying underrepresented classes, preserving all 310 samples while correcting for the skew. No data was deleted or manually resampled.
 
 **2. Epochs increased from 3 to 5**
 
-At the default 3 epochs, the model was stuck in a flat training region and had not converged. Increasing to 5 allowed it to escape this plateau. Because `load_best_model_at_end=True` is set, if the model began overfitting on epoch 4 or 5, the Trainer automatically rolled back to the checkpoint with the best validation accuracy — making the increase in epochs safe rather than a risk of overfitting.
+At the default 3 epochs, the model was stuck in a flat training region and had not converged. Increasing to 5 allowed it to escape this plateau. Since `load_best_model_at_end=True` is set, if the model began overfitting on epoch 4 or 5, the Trainer automatically rolled back to the checkpoint with the best validation accuracy. This makes the increase in epochs safe rather than a risk of overfitting.
 
 **3. Learning rate increased from 2e-5 to 3e-5**
 
@@ -170,7 +170,7 @@ A slightly higher learning rate was used to help the model escape the flat regio
 
 The zero-shot baseline used `llama-3.3-70b-versatile` via the Groq API. The system prompt provided the four label definitions in plain language, one example post per label, and decision rules for the hard boundaries (Analysis vs. Opinion, News vs. Analysis, Opinion vs. Low Quality). The model was instructed to respond with only the label name and no explanation. Temperature was set to 0 for deterministic output. All 47 test examples were classified with a 0.1s delay between requests to respect free-tier rate limits.
 
-The baseline prompt was designed to be a genuine competitor — not a strawman — by including the full label definitions and explicit boundary rules. A zero-shot LLaMA-3.3-70B with a well-crafted prompt is a high bar; outperforming it demonstrates real value from the supervised fine-tuning pipeline.
+The baseline prompt was designed to be a genuine competitor, not a strawman,  by including the full label definitions and explicit boundary rules. A zero-shot LLaMA-3.3-70B with a well-crafted prompt is a high bar; outperforming it demonstrates real value from the supervised fine-tuning pipeline.
 
 ---
 
@@ -225,7 +225,7 @@ The confusion matrix confirms the expected pattern: the dominant error boundary 
 
 ### Wrong Prediction Analysis
 
-The model made 7 errors on the 47-example test set. All 7 fall on exactly two boundaries, with no scatter across other pairs. This is a structurally meaningful finding — not random noise.
+The model made 7 errors on the 47-example test set. All 7 fall on exactly two boundaries, with no scatter across other pairs. This is a structurally meaningful finding, not random noise.
 
 **Boundary 1: `Interpretive_Opinion` → predicted `Evidence_Based_Analysis` (3 cases)**
 
@@ -234,21 +234,21 @@ The model made 7 errors on the 47-example test set. All 7 fall on exactly two bo
 
 True label: `Interpretive_Opinion` | Predicted: `Evidence_Based_Analysis` | Confidence: 0.47
 
-The title phrase "this is the exact math that changed my mind" is the trigger. The word "math" combined with numerical reasoning language throughout the post activates the model's `Evidence_Based_Analysis` pattern even though the post is fundamentally an opinion piece — the author is explaining why they personally won't buy, not presenting an independent analysis that stands alone as evidence. The model is picking up on surface vocabulary ("math," "exact") rather than reasoning structure. Low confidence (0.47) signals the model is uncertain; it's not a committed misclassification, it's a coin-flip at the boundary.
+The title phrase "this is the exact math that changed my mind" is the trigger. The word "math" combined with numerical reasoning language throughout the post activates the model's `Evidence_Based_Analysis` pattern even though the post is fundamentally an opinion piece, the author is explaining why they personally won't buy, not presenting an independent analysis that stands alone as evidence. The model is picking up on surface vocabulary ("math," "exact") rather than reasoning structure. Low confidence (0.47) signals the model is uncertain; it's not a committed misclassification, it's a coin flip at the boundary.
 
 **Error #4:**
 > "We can write off any answer here which ignores the fact that Friday last week was the worst day in the market in over 4 years (was not CPI leak as it doesn't explain last Friday)..."
 
 True label: `Interpretive_Opinion` | Predicted: `Evidence_Based_Analysis` | Confidence: 0.43
 
-Structurally similar to Error #1. The post references a specific market event with precise framing ("worst day in over 4 years," "was not CPI leak"), which triggers the analytical vocabulary pattern. The post is substantively an opinion about market causation with no independently verifiable evidence — but it reads like analysis. Extremely low confidence (0.43) confirms the model is nearly guessing.
+Structurally similar to Error #1. The post references a specific market event with precise framing ("worst day in over 4 years," "was not CPI leak"), which triggers the analytical vocabulary pattern. The post is substantively an opinion about market causation with no independently verifiable evidence, but it reads like analysis. Extremely low confidence (0.43) confirms the model is nearly guessing.
 
 **Error #7:**
 > "For those who keep asking for a 'one buy and hold for the next 10 years' the opportunity is here: it's GOOGL..."
 
 True label: `Interpretive_Opinion` | Predicted: `Evidence_Based_Analysis` | Confidence: 0.40
 
-The post includes some supporting reasoning about GOOGL's business fundamentals. The model finds enough analytical framing in the body to push it over the Evidence_Based threshold, but the post's thesis ("the opportunity is here") is a personal conviction, not an independently verifiable claim. The confidence of 0.40 is the lowest of any prediction in the test set — the model barely tips to the wrong side.
+The post includes some supporting reasoning about GOOGL's business fundamentals. The model finds enough analytical framing in the body to push it over the Evidence_Based threshold, but the post's thesis ("the opportunity is here") is a personal conviction, not an independently verifiable claim. The confidence of 0.40 is the lowest of any prediction in the test set; the model barely tips to the wrong side.
 
 **What causes this boundary to fail:** The model has learned to associate analytical vocabulary (math, exact, fact, worst, since, over X years) with `Evidence_Based_Analysis`. What it has not fully learned is the structural test: *does the claim stand independently of the author's assertion?* That distinction requires understanding argument structure, not surface vocabulary.
 
@@ -261,58 +261,60 @@ The post includes some supporting reasoning about GOOGL's business fundamentals.
 
 True label: `Low_Quality_Misleading` | Predicted: `Interpretive_Opinion` | Confidence: 0.58
 
-This post reads like an opinionated rant — frustrated, reasoned in tone, not explicitly making market-moving claims. The difference between this and `Interpretive_Opinion` is that it makes no verifiable claims and is emotionally reactive rather than analytical. "Value investing died" is presented as established fact rather than opinion; the tone is fearmongering rather than reasoned disagreement. The model has not fully separated emotional-reactive language from frustrated-but-legitimate opinion. This is a genuinely hard case: a grader who saw this post without the low-quality framework might label it Opinion as well.
+This post reads like an opinionated rant: frustrated, reasoned in tone, not explicitly making market-moving claims. The difference between this and `Interpretive_Opinion` is that it makes no verifiable claims and is emotionally reactive rather than analytical. "Value investing died" is presented as established fact rather than opinion; the tone is fearmongering rather than reasoned disagreement. The model has not fully separated emotional-reactive language from frustrated-but-legitimate opinion. This is a genuinely hard case: a grader who saw this post without the low quality framework might label it Opinion as well.
 
 **Error #6:**
 > "Is this where the retail market comes to cope with the reality that we're retail? Take Merrill Lynch's advice and take your profits now. We could read into that advice..."
 
 True label: `Low_Quality_Misleading` | Predicted: `Interpretive_Opinion` | Confidence: 0.60
 
-Similar to Error #2. The post uses sarcasm ("is this where the retail market comes to cope") combined with a direct call to financial action ("take your profits now"), but the sarcastic framing makes it read like cynical commentary rather than manipulation. The model has not learned that sarcasm-as-manipulation crosses the Low Quality threshold. The signal it would need to distinguish these — the directional call-to-action embedded in sarcastic framing — is subtle and likely underrepresented at this data scale.
+Similar to Error #2. The post uses sarcasm ("is this where the retail market comes to cope") combined with a direct call to financial action ("take your profits now"), but the sarcastic framing makes it read like cynical commentary rather than manipulation. The model has not learned that sarcasm-as-manipulation crosses the Low Quality threshold. The signal it would need to distinguish these, the directional call to action embedded in sarcastic framing, is subtle and likely underrepresented at this data scale.
 
 **What causes this boundary to fail:** Emotionally frustrated posts that make no verifiable claims but also avoid explicit certainty language (no "guaranteed," no "load up") fall into a gray zone the model hasn't fully learned. At 310 examples, the training signal for this specific subtype of `Low_Quality_Misleading` is thin.
 
 ---
 
-**AI-assisted pattern identification:** The seven wrong predictions were fed to Claude with the prompt: *"Here are 7 posts that a fine-tuned DistilBERT classifier got wrong, with predicted and true labels. Given these label definitions, identify systematic patterns in the errors. What is the model actually learning that causes these specific confusions? Be specific."* Claude correctly identified both dominant boundaries (Opinion/Analysis surface vocabulary and LQM/Opinion emotional tone), flagged the low-confidence pattern on the Analysis misclassifications, and suggested that short post length might correlate with errors. The length claim was checked numerically in Section 4c: misclassified posts average 777 chars vs. 2,061 for correct ones — **the length pattern is confirmed, not rejected**. Every pattern reported below is independently computed in the notebook (`Section 4c`) so none rests on the LLM's assertion alone.
+**AI-assisted pattern identification:** The seven wrong predictions were fed to Claude with the prompt: *"Here are 7 posts that a fine-tuned DistilBERT classifier got wrong, with predicted and true labels. Given these label definitions, identify systematic patterns in the errors. What is the model actually learning that causes these specific confusions? Be specific."* Claude correctly identified both dominant boundaries (Opinion/Analysis surface vocabulary and LQM/Opinion emotional tone), flagged the low-confidence pattern on the Analysis misclassifications, and suggested that short post length might correlate with errors. The length claim was checked numerically in Section 4c: misclassified posts average 777 chars vs. 2,061 for correct ones. Thus, **the length pattern is confirmed, not rejected**. Every pattern reported below is independently computed in the notebook (`Section 4c`) so none rests on the LLM's assertion alone.
 
 ---
 
 ### Systematic Error Pattern Analysis
 
-Listing seven individual wrong predictions is description, not diagnosis. To establish a *systematic* pattern, the notebook (`Section 4c`) tests four candidate hypotheses against the full test set by counting — each is confirmed or rejected by the data, not by inspection.
+Listing seven individual wrong predictions is description, not diagnosis. To establish a *systematic* pattern, the notebook (`Section 4c`) tests four candidate hypotheses against the full test set by counting. Each is confirmed or rejected by the data, not by inspection.
 
-**Pattern 1 — Errors concentrate on two boundaries (confirmed).** All 7 errors fall on a small number of label pairs. The dominant boundary is `Interpretive_Opinion` → `Evidence_Based_Analysis` (3 of 7, 43%); the secondary boundary is `Low_Quality_Misleading` → `Interpretive_Opinion` (2 of 7, 29%). The remaining 2 errors are a single `Interpretive_Opinion` → `Low_Quality_Misleading` and a single `News_Information` → `Evidence_Based_Analysis`. Five of seven errors sit on the two suspected boundaries — error is structurally clustered, not scattered noise.
+**Pattern 1 — Errors concentrate on two boundaries (confirmed).** All 7 errors fall on a small number of label pairs. The dominant boundary is `Interpretive_Opinion` → `Evidence_Based_Analysis` (3 of 7, 43%); the secondary boundary is `Low_Quality_Misleading` → `Interpretive_Opinion` (2 of 7, 29%). The remaining 2 errors are a single `Interpretive_Opinion` → `Low_Quality_Misleading` and a single `News_Information` → `Evidence_Based_Analysis`. Five of seven errors sit on the two suspected boundaries. Errors are structurally clustered, not scattered noise.
 
-**Pattern 2 — The Opinion/Analysis confusion is directional (confirmed).** The confusion is *asymmetric*: the model labels true `Interpretive_Opinion` posts as `Evidence_Based_Analysis` 3 times, but never makes the reverse error (true Analysis → predicted Opinion = 0). This is the single most systematic finding: **the model has a directional bias toward over-claiming evidence.** It reads analytical-sounding vocabulary ("math," "exact," "the fact that," "worst day in 4 years") as if it were real evidence, and pulls opinion posts across the boundary. It does not make the opposite mistake of dismissing genuine analysis as opinion. This is consistent with the confusion matrix, where the entire EBA row is correctly classified (recall 1.00) while the IO row leaks 3 cases into EBA.
+**Pattern 2 — The Opinion/Analysis confusion is directional (confirmed).** The confusion is *asymmetric*: the model labels true `Interpretive_Opinion` posts as `Evidence_Based_Analysis` 3 times, but never makes the reverse error (true Analysis → predicted Opinion = 0). This is the single most systematic finding: **the model has a directional bias toward overclaiming evidence.** It reads analytical sounding vocabulary ("math," "exact," "the fact that," "worst day in 4 years") as if it were real evidence, and pulls opinion posts across the boundary. It does not make the opposite mistake of dismissing genuine analysis as opinion. This is consistent with the confusion matrix, where the entire EBA row is correctly classified (recall 1.00) while the IO row leaks 3 cases into EBA.
 
-**Pattern 3 — Length is a correlate of errors (supported, but not the cause).** The notebook's Section 4c computes mean/median character length for correct vs. incorrect predictions: correct predictions average 2,061 chars, incorrect predictions average 777 chars — misclassified posts are markedly shorter (less than 0.8× the correct-prediction mean, the notebook's threshold for "supported"). However, length is a correlate, not a cause. Shorter posts have fewer tokens to establish label-disambiguating vocabulary, which means the model falls back on weaker surface signals — consistent with the vocabulary-based failure mode described in Pattern 2. A post that is short *and* uses analytical-sounding words is exactly the profile of the Opinion→Analysis errors. Length predicts errors but does not explain them.
+**Pattern 3 — Length is a correlate of errors (supported, but not the cause).** The notebook's Section 4c computes mean/median character length for correct vs. incorrect predictions: correct predictions average 2,061 chars, incorrect predictions average 777 chars. Misclassified posts are markedly shorter (less than 0.8× the correct-prediction mean, the notebook's threshold for "supported"). However, length is a correlate, not a cause. Shorter posts have fewer tokens to establish label disambiguating vocabulary, which means the model falls back on weaker surface signals, consistent with the vocabulary-based failure mode described in Pattern 2. A post that is short *and* uses analytical sounding words is exactly the profile of the Opinion→Analysis errors. Length predicts errors but does not explain them.
 
-**Pattern 4 — Errors are reliably low-confidence (confirmed).** The 7 misclassifications have a mean confidence of 0.523, compared to 0.571 on correct predictions — a separation of only +0.048. Five of the 7 errors fall below 0.60 confidence (71%). The model's softmax scores are compressed into the 0.35–0.73 range across the entire test set (the 0.90–1.00 bin is empty), so the separation is modest but real. Routing predictions below 0.60 to human review would catch the majority of errors with minimal cost to throughput — the 0.50–0.70 bin shows 92% empirical accuracy, so confident predictions in that range are reliable.
+**Pattern 4 — Errors are reliably low-confidence (confirmed).** The 7 misclassifications have a mean confidence of 0.523, compared to 0.571 on correct predictions, a separation of only +0.048. Five of the 7 errors fall below 0.60 confidence (71%). The model's softmax scores are compressed into the 0.35–0.73 range across the entire test set (the 0.90–1.00 bin is empty), so the separation is modest but real. Routing predictions below 0.60 to human review would catch the majority of errors with minimal cost to throughput. The 0.50–0.70 bin shows 92% empirical accuracy, so confident predictions in that range are reliable.
 
-**The systematic pattern, stated plainly:** *The model's errors are not random. They concentrate on two structural boundaries (Opinion↔Analysis and LQM↔Opinion), are directionally biased toward over-claiming evidence from analytical vocabulary, correlate with shorter post length (misclassified posts average 777 chars vs. 2,061 for correct ones), and occur at systematically lower confidence than correct predictions (mean 0.523 vs. 0.571). The model fails specifically when a short opinion post borrows the surface vocabulary of analysis — and it signals that failure through low confidence.*
+**The systematic pattern, stated plainly:** *The model's errors are not random. They concentrate on two structural boundaries (Opinion↔Analysis and LQM↔Opinion), are directionally biased toward overclaiming evidence from analytical vocabulary, correlate with shorter post length (misclassified posts average 777 chars vs. 2,061 for correct ones), and occur at systematically lower confidence than correct predictions (mean 0.523 vs. 0.571). The model fails specifically when a short opinion post borrows the surface vocabulary of analysis & it signals that failure through low confidence.*
 
 ---
 
 ### Confidence Calibration
 
-A confidence score is only useful if it is *meaningful*: a 90%-confident prediction should be right more often than a 60%-confident one. If confidence does not track correctness, the softmax probability is a decorative number and cannot be used to route low-confidence posts to human review (one of the deployment cases in [planning.md](planning.md)). The notebook (`Section 4b`) assesses this three ways. The reliability diagram is saved to [results/calibration_curve.png](results/calibration_curve.png).
+![Calibration Curve](results/calibration_curve.png)
 
-**1. Confidence separates correct from incorrect predictions.** The mean confidence on the 40 correct predictions is 0.571 vs. 0.523 on the 7 wrong ones — a gap of +0.048. This is a modest separation because the model's entire softmax distribution is compressed into the 0.35–0.73 range: the 0.90–1.00 bin is empty across all 47 test examples. The signal is real but small. Crucially, 5 of the 7 errors fall below 0.60 (71%), making the confidence score a useful triage filter even with the narrow overall range.
+A confidence score is only useful if it is *meaningful*: a 90% confident prediction should be right more often than a 60% confident one. If confidence does not track correctness, the softmax probability is a decorative number and cannot be used to route low confidence posts to human review (one of the deployment cases in [planning.md](planning.md)). The notebook (`Section 4b`) assesses this three ways. The reliability diagram is saved to [results/calibration_curve.png](results/calibration_curve.png).
 
-**2. Accuracy rises with confidence (reliability table).** The notebook's Section 4b bins show: 0.00–0.50 bin (n=10) → 60% accuracy; 0.50–0.70 bin (n=36) → 92% accuracy; 0.70–0.90 bin (n=1) → 100% accuracy. The 0.90–1.00 bin is empty. Accuracy rises sharply from the low to mid confidence tier — the 0.50–0.70 bin, which contains 77% of all test predictions, is highly reliable. This is the empirical answer to the "90% vs. 60%" question reframed for this model: **yes, a mid-confidence prediction (0.50–0.70) is meaningfully more likely to be correct (92%) than a low-confidence one (0.00–0.50, 60%).**
+**1. Confidence separates correct from incorrect predictions.** The mean confidence on the 40 correct predictions is 0.571 vs. 0.523 on the 7 wrong ones, a gap of +0.048. This is a modest separation because the model's entire softmax distribution is compressed into the 0.35–0.73 range: the 0.90–1.00 bin is empty across all 47 test examples. The signal is real but small. Crucially, 5 of the 7 errors fall below 0.60 (71%), making the confidence score a useful triage filter even with the narrow overall range.
 
-**3. Expected Calibration Error (ECE).** The notebook reports ECE — the population-weighted average gap between stated confidence and realized accuracy across bins — together with the reliability diagram plotting confidence against empirical accuracy (the diagonal is perfect calibration).
+**2. Accuracy rises with confidence (reliability table).** The notebook's Section 4b bins show: 0.00–0.50 bin (n=10) → 60% accuracy; 0.50–0.70 bin (n=36) → 92% accuracy; 0.70–0.90 bin (n=1) → 100% accuracy. The 0.90–1.00 bin is empty. Accuracy rises sharply from the low to mid confidence tier; the 0.50–0.70 bin, which contains 77% of all test predictions, is highly reliable. This is the empirical answer to the "90% vs. 60%" question reframed for this model: **yes, a middle confidence prediction (0.50–0.70) is meaningfully more likely to be correct (92%) than a low confidence one (0.00–0.50, 60%).**
 
-**Practical consequence:** 5 of the 7 errors (71%) fall below 0.60 confidence. Routing predictions under ~0.60 to human review would catch those errors while passing through the 0.50–0.70 bin (n=36, 92% accurate) automatically. The threshold is imperfect at this scale — 10 low-confidence predictions would be flagged, but 6 of those 10 are actually correct. In a production setting with higher volume, this tradeoff (flagging ~20% of predictions for review in exchange for catching 71% of errors) is operationally useful. The deployed interface ([app.py](app.py)) implements this triage hint directly.
+**3. Expected Calibration Error (ECE).** The notebook reports ECE, the population weighted average gap between stated confidence and realized accuracy across bins, together with the reliability diagram plotting confidence against empirical accuracy (the diagonal is perfect calibration).
 
-**Honest caveat:** With only 47 test examples, per-bin counts are small and ECE is a noisy point estimate. These findings are reported as *directional* evidence that confidence is informative — strong enough to support a triage threshold — not as a precise calibration certificate. A production system would re-estimate calibration on a far larger held-out set.
+**Practical consequence:** 5 of the 7 errors (71%) fall below 0.60 confidence. Routing predictions under ~0.60 to human review would catch those errors while passing through the 0.50–0.70 bin (n=36, 92% accurate) automatically. The threshold is imperfect at this scale. 10 low confidence predictions would be flagged, but 6 of those 10 are actually correct. In a production setting with higher volume, this tradeoff (flagging ~20% of predictions for review in exchange for catching 71% of errors) is operationally useful. The deployed interface ([app.py](app.py)) implements this triage hint directly.
+
+**Honest caveat:** With only 47 test examples, per-bin counts are small and ECE is a noisy point estimate. These findings are reported as *directional* evidence that confidence is informative: strong enough to support a triage threshold, but not as a precise calibration certificate. A production system would re-estimate calibration on a far larger held out set.
 
 ---
 
 ### Sample Classifications
 
-The following posts were run through the saved fine-tuned model (`checkpoint-56`) and reflect its actual output — labels and confidence scores are produced by the same artifact loaded by the deployed interface ([app.py](app.py)), not manually entered:
+The following posts were run through the saved fine-tuned model (`checkpoint-56`) and reflect its actual output. Labels and confidence scores are produced by the same artifact loaded by the deployed interface ([app.py](app.py)), not manually entered:
 
 | Post (truncated) | Predicted Label | Confidence | Correct? |
 |------------------|-----------------|------------|----------|
@@ -322,13 +324,13 @@ The following posts were run through the saved fine-tuned model (`checkpoint-56`
 | "GME to $500 by end of month. Shorts are TRAPPED. Anyone selling before $300 is leaving money on the table." | `Low_Quality_Misleading` | 0.62 | ✓ |
 | "Microsoft's cloud segment has been growing faster than AWS for three consecutive quarters, which tells me the enterprise migration cycle still has runway." | `Interpretive_Opinion` | 0.57 | ✓ |
 
-These five posts were chosen as canonical examples of each label, but they are not from the held-out test set — they are new inputs, not seen during training or evaluation. Three of five are correctly classified; two are wrong, both at low confidence (0.54 and 0.49). This is consistent with the model's actual behavior: the notebook's Section 4b confirms no test prediction exceeded 0.73 confidence, the 0.90–1.00 bin is empty, and mean confidence on correct predictions is only 0.571.
+These five posts were chosen as canonical examples of each label, but they are not from the held out test set. They are new inputs, not seen during training or evaluation. Three of five are correctly classified; two are wrong, both at low confidence (0.54 and 0.49). This is consistent with the model's actual behavior: the notebook's Section 4b confirms no test prediction exceeded 0.73 confidence, the 0.90–1.00 bin is empty, and mean confidence on correct predictions is only 0.571.
 
-**Why confidence is uniformly low:** The model's softmax outputs are compressed into the 0.35–0.65 range across the board. This is a known artifact of training with `WeightedCrossEntropyLoss` on a small dataset — the class weights push the model toward hedged rather than peaked distributions, and the model has learned that many posts sit near label boundaries. It is poorly calibrated (ECE = 0.287): its stated confidence substantially underestimates its realized accuracy. The 0.50–0.70 confidence bin has 92% empirical accuracy, meaning the model is nearly as reliable at 0.55 as a well-calibrated model at 0.90.
+**Why confidence is uniformly low:** The model's softmax outputs are compressed into the 0.35–0.65 range across the board. This is a known artifact of training with `WeightedCrossEntropyLoss` on a small dataset. The class weights push the model toward hedged rather than peaked distributions, and the model has learned that many posts sit near label boundaries. It is poorly calibrated (ECE = 0.287): its stated confidence substantially underestimates its realized accuracy. The 0.50–0.70 confidence bin has 92% empirical accuracy, meaning the model is nearly as reliable at 0.55 as a well calibrated model at 0.90.
 
-**Row 1 misclassification (NVDA — true: `Evidence_Based_Analysis`, predicted: `Interpretive_Opinion`):** This post is a hard case even for a human annotator — it combines opinion framing ("looks fairly valued") with specific financial metrics (P/E, EPS). The model predicts `Interpretive_Opinion` at 0.54, only marginally preferred over the correct label `Evidence_Based_Analysis` (0.18). This exact boundary confusion — analytical vocabulary triggering the wrong label at low confidence — is the dominant error pattern identified in Section 4 and the error pattern analysis.
+**Row 1 misclassification (NVDA — true: `Evidence_Based_Analysis`, predicted: `Interpretive_Opinion`):** This post is a hard case even for a human annotator. It combines opinion framing ("looks fairly valued") with specific financial metrics (P/E, EPS). The model predicts `Interpretive_Opinion` at 0.54, only marginally preferred over the correct label `Evidence_Based_Analysis` (0.18). This exact boundary confusion, analytical vocabulary triggering the wrong label at low confidence, is the dominant error pattern identified in Section 4 and the error pattern analysis.
 
-**Row 2 misclassification (Fed pivot — true: `Interpretive_Opinion`, predicted: `Low_Quality_Misleading`):** The post is hedged ("I think," "feels like") but the model assigns it `Low_Quality_Misleading` at 0.49 — nearly a coin flip between LQM (0.49) and IO (0.41). This is the secondary error boundary (LQM↔IO) and occurs precisely at the low confidence that the triage threshold is designed to catch.
+**Row 2 misclassification (Fed pivot — true: `Interpretive_Opinion`, predicted: `Low_Quality_Misleading`):** The post is hedged ("I think," "feels like") but the model assigns it `Low_Quality_Misleading` at 0.49. This is nearly a coin flip between LQM (0.49) and IO (0.41). This is the secondary error boundary (LQM↔IO) and occurs precisely at the low confidence that the triage threshold is designed to catch.
 
 ---
 
@@ -338,29 +340,29 @@ The model was designed to learn *reasoning structure*: whether a post's claim is
 
 It learned, correctly, that `News_Information` posts contain specific numbers, company names, percentage changes, and factual verbs in past tense ("reported," "announced," "raised"). It learned that `Low_Quality_Misleading` posts contain certainty markers ("guaranteed," "TRAPPED," "load up") and imperatives. It learned that `Interpretive_Opinion` posts use hedging language ("I think," "I feel," "I believe").
 
-Where it overfits is at the `Evidence_Based_Analysis` / `Interpretive_Opinion` boundary. The model learned that analytical vocabulary (math, exact, fact, data, metrics) predicts `Evidence_Based_Analysis`, which is correlated but not identical to the intended definition. The intended definition requires a structural property — the evidence standing independently of the author's assertion — that cannot be reliably detected from surface vocabulary alone.
+Where it overfits is at the `Evidence_Based_Analysis` / `Interpretive_Opinion` boundary. The model learned that analytical vocabulary (math, exact, fact, data, metrics) predicts `Evidence_Based_Analysis`, which is correlated but not identical to the intended definition. The intended definition requires a structural property, the evidence standing independently of the author's assertion, that cannot be reliably detected from surface vocabulary alone.
 
 The practical consequence is systematic false positives on `Evidence_Based_Analysis`: opinion posts that use analytical-sounding language get pulled across the boundary. The model cannot perform the "stripping test" that the annotation guidelines describe, because that test requires semantic understanding of the claim's logical structure, not pattern matching on vocabulary.
 
-This is not a failure of the fine-tuning approach; it is an honest limitation of DistilBERT at this data scale. A model that learned the intended structural distinction would need substantially more training examples at the hard boundary, examples that systematically contrast analytical vocabulary with non-analytical reasoning, so the model can learn to disambiguate the two. Alternatively, a larger model (BERT-large, RoBERTa) might better capture argument structure from context. The gap between intention and learned decision boundary is ~4.2pp of accuracy at this scale — meaningful but not catastrophic.
+This is not a failure of the fine-tuning approach; it is an honest limitation of DistilBERT at this data scale. A model that learned the intended structural distinction would need substantially more training examples at the hard boundary, examples that systematically contrast analytical vocabulary with non-analytical reasoning, so the model can learn to disambiguate the two. Alternatively, a larger model (BERT-large, RoBERTa) might better capture argument structure from context. The gap between intention and learned decision boundary is ~4.2pp of accuracy at this scale. This is meaningful but not catastrophic.
 
 ---
 
 ## Spec Reflection
 
-**One way the spec helped:** Defining the four labels and their edge case rules before any annotation began was the single most valuable structural decision in this project. The "stripping test" (remove opinion framing — does the claim stand independently?) resolved dozens of ambiguous cases that would otherwise have been labeled inconsistently. Without that rule written down before annotation, the Analysis/Opinion boundary would have drifted significantly across 310 examples.
+**One way the spec helped:** Defining the four labels and their edge case rules before any annotation began was the single most valuable structural decision in this project. The "stripping test" (remove opinion framing, does the claim still stand independently?) resolved dozens of ambiguous cases that would otherwise have been labeled inconsistently. Without that rule written down before annotation, the Analysis/Opinion boundary would have drifted significantly across 310 examples.
 
-**One way implementation diverged from the spec:** The spec assumed inter-annotator agreement would be feasible to compute. In practice, with a single annotator and a 310-example manual dataset, there was no second labeler to check against. The consequence is that annotation consistency is structural risk that cannot be quantified. Several posts near the Analysis/Opinion boundary were revisited multiple times during annotation, and it is plausible that if the same annotator reviewed the dataset a second time without memory of the first pass, some borderline decisions would differ. The spec should have included at least a 30-example second-pass consistency check by the same annotator to estimate this drift.
+**One way implementation diverged from the spec:** The spec assumed inter-annotator agreement would be feasible to compute. In practice, with a single annotator and a 310-example manual dataset, there was no second labeler to check against. The consequence is that annotation consistency is structural risk that cannot be quantified. Several posts near the Analysis/Opinion boundary were revisited multiple times during annotation, and it is plausible that if the same annotator reviewed the dataset a second time without memory of the first pass, some borderline decisions would differ. The spec should have included at least a 30-example second pass consistency check by the same annotator to estimate this drift.
 
 ---
 
 ## Deployed Interface
 
-A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model and lets you classify a brand-new post interactively: paste a Reddit r/stocks post, press **Classify**, and the app returns the predicted discourse-quality label, the model's confidence, the full probability distribution across all four classes, and a triage hint.
+A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model and lets you classify a brand new post interactively: paste a Reddit r/stocks post, press **Classify**, and the app returns the predicted discourse quality label, the model's confidence, the full probability distribution across all four classes, and a triage hint.
 
-The triage hint operationalizes the calibration finding from the [Confidence Calibration](#confidence-calibration) section: because the model's errors concentrate below ~0.60 confidence, any prediction under that threshold is flagged for human review rather than auto-classified — exactly the human-in-the-loop pattern a production content-triage system would use.
+The triage hint operationalizes the calibration finding from the [Confidence Calibration](#confidence-calibration) section: because the model's errors concentrate below ~0.60 confidence, any prediction under that threshold is flagged for human review rather than auto classified. This is exactly the human-in-the-loop pattern a production content triage system would use.
 
-The interface tokenizes input with the **same** settings used at training time (`truncation=True, max_length=256`) and reads the label mapping from the saved model's own `id2label`, so the deployed predictions are identical to what the notebook produces — no drift between evaluation and deployment.
+The interface tokenizes input with the **same** settings used at training time (`truncation=True, max_length=256`) and reads the label mapping from the saved model's own `id2label`, so the deployed predictions are identical to what the notebook produces. There is no drift between evaluation and deployment.
 
 ### Prerequisites
 
@@ -380,7 +382,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Gradio prints a local URL (default `http://127.0.0.1:7860`) — open it in a browser. To point the app at a model stored elsewhere:
+Gradio prints a local URL (default `http://127.0.0.1:7860`), open it in a browser. To point the app at a model stored elsewhere:
 
 ```bash
 # macOS / Linux
@@ -390,11 +392,11 @@ TAKEMETER_MODEL_DIR=/path/to/takemeter-model python app.py
 $env:TAKEMETER_MODEL_DIR = "C:\path\to\takemeter-model"; python app.py
 ```
 
-The app runs on CPU by default — DistilBERT is small enough for sub-second single-post inference, so no GPU is required to demo it.
+The app runs on CPU by default, DistilBERT is small enough for sub-second single-post inference, so no GPU is required to demo it. Alternatively, open `model_notebook.ipynb` in Google Colab & run with free T4 GPU. 
 
 ### Honest Note on Deployed Behavior
 
-The interface inherits every limitation of the underlying model documented in the [reflection](#reflection-what-the-model-learned-vs-what-was-intended) above — the directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. It is also **poorly calibrated**: the canonical example posts return confidences in the ≈0.35–0.62 range, and some borderline posts (e.g. the NVDA analysis post) are misclassified at low confidence. The interface deliberately surfaces these true, low confidences via the triage hint rather than hiding them behind a single confident-looking label.
+The interface inherits every limitation of the underlying model documented in the [reflection](#reflection-what-the-model-learned-vs-what-was-intended) above. The directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. It is also **poorly calibrated**: the canonical example posts return confidences in the ≈0.35–0.62 range, and some borderline posts (e.g. the NVDA analysis post) are misclassified at low confidence. The interface deliberately surfaces these true, low confidences via the triage hint rather than hiding them behind a single confident looking label.
 
 ---
 
@@ -402,13 +404,13 @@ The interface inherits every limitation of the underlying model documented in th
 
 ### Instance 1: BERT Architecture and Training Loop Explanation
 
-Before implementing the fine-tuning cell, Claude was asked to explain how DistilBERT's classification head attaches to the transformer backbone, how the training loop differs from a standard PyTorch CNN training loop (the extent of my prior model training experience), and what the `Trainer` API abstracts away relative to writing a manual loop. Claude produced a detailed walkthrough of the transformer classification architecture — `[CLS]` token pooling, the pre-classifier dense layer, the final linear head — and explained the differences in gradient flow between sequence classification and convolutional architectures.
+Before implementing the fine-tuning cell, Claude was asked to explain how DistilBERT's classification head attaches to the transformer backbone, how the training loop differs from a standard PyTorch CNN training loop (the extent of my prior model training experience), and what the `Trainer` API abstracts away relative to writing a manual loop. Claude produced a detailed walkthrough of the transformer classification architecture, `[CLS]` token pooling, the pre-classifier dense layer, the final linear head, and explained the differences in gradient flow between sequence classification and convolutional architectures.
 
-**What was changed or overridden:** Claude's explanation included a recommendation to use `AutoModel` with a manually attached classification head rather than `AutoModelForSequenceClassification`, on the grounds that it gives more control. After reviewing the HuggingFace docs, this was overridden in favor of `AutoModelForSequenceClassification` because the notebook scaffold was already built around the `Trainer` API, which expects the model to return a loss from its `.forward()` call — something `AutoModelForSequenceClassification` handles automatically and a manual head would require re-implementing. The explanation was valuable for understanding; the implementation recommendation was not adopted.
+**What was changed or overridden:** Claude's explanation included a recommendation to use `AutoModel` with a manually attached classification head rather than `AutoModelForSequenceClassification`, on the grounds that it gives more control. After reviewing the HuggingFace docs, this was overridden in favor of `AutoModelForSequenceClassification` because the notebook scaffold was already built around the `Trainer` API, which expects the model to return a loss from its `.forward()` call, something `AutoModelForSequenceClassification` handles automatically and a manual head would require re-implementing. The explanation was valuable for understanding; the implementation recommendation was not adopted.
 
 ### Instance 2: Class Weighting Mechanics and Accuracy Improvements
 
-After the initial training run produced ~50% accuracy (barely above random on four classes), Claude was asked — from the perspective of a senior ML engineer and financial analyst — to explain how class weighting works mechanically in a CrossEntropyLoss function and what other accuracy improvements would be appropriate given the dataset characteristics. Claude explained inverse-frequency class weight computation, how the per-sample loss scaling interacts with gradient updates across a mini-batch, and why it prevents the model from collapsing to majority-class prediction. It also recommended increasing epochs (with `load_best_model_at_end` as a safety net against overfitting) and a modest learning rate increase to escape the flat training region.
+After the initial training run produced ~50% accuracy (barely above random on four classes), Claude was asked, from the perspective of a senior ML engineer and financial analyst, to explain how class weighting works mechanically in a CrossEntropyLoss function and what other accuracy improvements would be appropriate given the dataset characteristics. Claude explained inverse frequency class weight computation, how the per-sample loss scaling interacts with gradient updates across a mini-batch, and why it prevents the model from collapsing to majority-class prediction. It also recommended increasing epochs (with `load_best_model_at_end` as a safety net against overfitting) and a modest learning rate increase to escape the flat training region.
 
 **What was changed or overridden:** Claude's initial weight formula suggestion used `n_samples / (n_classes * n_samples_per_class)` — standard inverse frequency. This was implemented directly as described. Claude also recommended label smoothing (epsilon=0.1) as an additional regularizer. This was tested and then removed: label smoothing reduced validation accuracy on this small dataset because the hard label signal is exactly what the model needs at 217 training examples — smoothing it was counterproductive. Claude's architectural suggestion (adding a dropout layer between pre-classifier and classifier) was also skipped; the `Trainer` + `WeightedTrainer` pattern was simpler and achieved the accuracy target without additional architectural changes.
 
