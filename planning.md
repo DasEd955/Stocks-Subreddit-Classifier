@@ -409,14 +409,38 @@ The fine-tuned model's softmax probabilities on the 47-example test set (`ft_pro
 
 2. **Directionality of the Opinion/Analysis confusion.** Test whether the errors are asymmetric — i.e., the model pulls Opinion *into* Analysis far more than the reverse. Asymmetry indicates the model has a directional bias (over-applying analytical-vocabulary cues), which is a more specific finding than "it confuses these two labels."
 
-3. **Length-as-proxy hypothesis (explicit refutation).** The README already claims that an LLM-suggested "short posts are misclassified more often" pattern was checked and *rejected*. This feature makes that check reproducible: compute mean/median character length of correct vs. incorrect predictions and report the comparison numerically, so the refutation is verifiable rather than asserted.
+3. **Length-as-proxy hypothesis (explicit verification).** The notebook's Section 4c computes mean/median character length of correct vs. incorrect predictions. The result: misclassified posts average 777 chars vs. 2,061 for correct predictions — the hypothesis is *supported* numerically, not rejected. Shorter posts have fewer tokens to establish label-disambiguating vocabulary, so the model falls back on weaker surface signals. Length is a correlate of error but not a root cause: it is a proxy for the vocabulary sparsity that underlies the Opinion→Analysis confusion.
 
 4. **Confidence signature of errors.** Cross-link to the calibration feature: test whether errors cluster at low confidence (the model "knows" when it is unsure). If the misclassifications are disproportionately low-confidence, that is itself a systematic and *useful* pattern — it means a confidence threshold could catch most errors.
 
 **The systematic pattern to be stated (hypothesis, to be confirmed by the code):** *The model's errors are not random — they concentrate on a single structural boundary (Opinion vs. Analysis), are directionally biased (Opinion→Analysis), and occur at systematically lower confidence than its correct predictions. The model is reliably uncertain exactly where it is wrong.* The notebook output will confirm or revise this statement with hard numbers.
 
-**Verification discipline:** Every claimed pattern is computed from `ft_pred_ids`/`ft_true_ids`/`ft_probs`/`test_df` directly. Any LLM-suggested pattern (e.g., the length hypothesis) that the counts do not support is reported as *rejected*, consistent with the verification stance already taken in Section 7.3.
+**Verification discipline:** Every claimed pattern is computed from `ft_pred_ids`/`ft_true_ids`/`ft_probs`/`test_df` directly and reported as confirmed or rejected by the actual numbers — including patterns where the data contradicts the framing in Section 7.3 (e.g., the length hypothesis turned out to be *supported* by the numbers, not rejected, despite an earlier incorrect claim in the README).
 
 ---
 
-*Planned remaining stretch feature: deployed Gradio interface.*
+## 10. Stretch Feature: Deployed Interface
+
+**Purpose:** Make the fine-tuned classifier usable by a non-technical person without opening the notebook. A deployed interface closes the loop on the deployment cases in Section 6 (Investment Research Filtering, content triage): an analyst pastes a Reddit post, presses one button, and gets back the discourse-quality label plus the model's confidence — the exact human-in-the-loop interaction a production triage tool would expose.
+
+**The question this answers:** *Can the trained model be invoked on a brand-new, never-seen post and return an actionable label + confidence, outside the training/eval harness?* The notebook only ever runs the model on the locked 47-example test set; this proves the saved artifact works as a standalone predictor.
+
+**Methodology:**
+
+A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model from the saved `model/takemeter-model` checkpoint with `AutoModelForSequenceClassification.from_pretrained`, tokenizes the input post with the *same* settings the notebook used at training time (`truncation=True, max_length=256`), runs a forward pass, and applies `softmax` to the logits. It then displays:
+
+1. **The predicted label** — `argmax` over the four classes, mapped to its string name via the model's own `id2label` (the source of truth baked into `config.json`).
+2. **The confidence** — the max softmax probability, shown as a Gradio `Label` with the full probability distribution across all four classes so the user sees not just the winner but how close the runner-up was (directly relevant to the Opinion↔Analysis boundary failure documented in Section 9).
+3. **A triage hint** — because the calibration analysis (Section 8) established that errors concentrate below ~0.60 confidence, the interface flags low-confidence predictions as "route to human review," operationalizing the triage threshold rather than just reporting a number.
+
+**Design decisions:**
+
+- **Inference parity with training.** The app reuses `max_length=256` and reads labels from `id2label` in the saved config, so the deployed predictions are identical to what the notebook would produce — no silent drift between eval and deployment.
+- **Model path is configurable and auto-resolving.** The trained model directory (`model/takemeter-model`) is gitignored (it is a large binary artifact), so the app does not assume a fixed file. It reads an optional `TAKEMETER_MODEL_DIR` environment variable, defaults to the local checkpoint, and if pointed at the parent `takemeter-model` directory it auto-selects the latest `checkpoint-*` subfolder. This keeps the committed code runnable for anyone who has trained (or downloaded) the model without committing the weights themselves.
+- **CPU-friendly.** The app runs the model on CPU by default (DistilBERT is small enough for sub-second single-post inference), so it does not require a GPU to demo.
+
+**Honest caveat to report:** The interface inherits every limitation of the underlying model documented in Sections 8–9 and the README reflection — in particular the directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. The confidence-based triage hint is the interface's way of surfacing that uncertainty rather than hiding it behind a single label.
+
+**Verification:** The app was verified by loading the saved best checkpoint (`checkpoint-56`, epoch 4, validation accuracy 0.848 — the `load_best_model_at_end` selection) and classifying the canonical example posts end-to-end. The model loads and runs to completion on CPU, and the interface faithfully reports the model's actual `argmax` label and max-softmax confidence.
+
+**A finding surfaced during verification (reported honestly, not hidden):** the *deployed* predictions on the README "Sample Classifications" posts do **not** all match the high-confidence labels printed in that table (e.g. the NVDA data-center post is predicted `Interpretive_Opinion` at 0.54, not `Evidence_Based_Analysis` at 0.94). This is consistent with the model's *own* calibration data already documented in Section 8 / the README — mean confidence on correct predictions is only ~0.57 and ECE is 0.287, so the model is poorly calibrated and rarely produces the 0.9+ confidences that table reports. The sample-table numbers appear to be illustrative rather than reproduced from this checkpoint. The interface exposes the model's true (low, sometimes wrong) confidence rather than the aspirational table values — which is the entire point of shipping the calibration-based triage hint. Running instructions are documented in the README.

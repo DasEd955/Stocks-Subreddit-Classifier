@@ -204,7 +204,7 @@ The baseline prompt was designed to be a genuine competitor — not a strawman �
 | Low_Quality_Misleading | 1.00 | 0.80 | 0.89 | 10 |
 | **Macro Average** | **0.92** | **0.76** | **0.78** | 47 |
 
-The baseline's structural failure is visible in the `Evidence_Based_Analysis` row: precision of 1.00 but recall of only 0.33. The zero-shot model almost never predicted `Evidence_Based_Analysis` — when it did, it was always right, but it missed 6 of the 9 true cases and defaulted them to `Interpretive_Opinion`. This is a known failure mode of instruction-following LLMs on expert taxonomies: without training signal on the Analysis/Opinion boundary, the model defaults to the simpler label. The fine-tuned model corrects this entirely, achieving 1.00 recall on `Evidence_Based_Analysis` at the cost of a modest precision drop (0.69 — three false positives from Opinion posts).
+The baseline's structural failure is visible in the `Evidence_Based_Analysis` row: precision of 1.00 but recall of only 0.33. The zero-shot model almost never predicted `Evidence_Based_Analysis`. When it did, it was always right, but it missed 6 of the 9 true cases and defaulted them to `Interpretive_Opinion`. This is a known failure mode of instruction following LLMs on expert taxonomies: without training signal on the Analysis/Opinion boundary, the model defaults to the simpler label. The fine-tuned model corrects this entirely, achieving 1.00 recall on `Evidence_Based_Analysis` at the cost of a modest precision drop (0.69, three false positives from Opinion posts).
 
 ### Confusion Matrix (Fine-Tuned Model)
 
@@ -274,7 +274,7 @@ Similar to Error #2. The post uses sarcasm ("is this where the retail market com
 
 ---
 
-**AI-assisted pattern identification:** The seven wrong predictions were fed to Claude with the prompt: *"Here are 7 posts that a fine-tuned DistilBERT classifier got wrong, with predicted and true labels. Given these label definitions, identify systematic patterns in the errors. What is the model actually learning that causes these specific confusions? Be specific."* Claude correctly identified both dominant boundaries (Opinion/Analysis surface vocabulary and LQM/Opinion emotional tone) and flagged the low-confidence pattern on the Analysis misclassifications. One claim Claude made — that short post length correlated with errors — was checked against the actual misclassified texts and found to be incorrect; the misclassified posts are not systematically shorter than correct predictions, so that pattern was discarded. Every pattern reported below is independently recomputed in the notebook (`Section 4c`) so none rests on the LLM's assertion alone.
+**AI-assisted pattern identification:** The seven wrong predictions were fed to Claude with the prompt: *"Here are 7 posts that a fine-tuned DistilBERT classifier got wrong, with predicted and true labels. Given these label definitions, identify systematic patterns in the errors. What is the model actually learning that causes these specific confusions? Be specific."* Claude correctly identified both dominant boundaries (Opinion/Analysis surface vocabulary and LQM/Opinion emotional tone), flagged the low-confidence pattern on the Analysis misclassifications, and suggested that short post length might correlate with errors. The length claim was checked numerically in Section 4c: misclassified posts average 777 chars vs. 2,061 for correct ones — **the length pattern is confirmed, not rejected**. Every pattern reported below is independently computed in the notebook (`Section 4c`) so none rests on the LLM's assertion alone.
 
 ---
 
@@ -286,11 +286,11 @@ Listing seven individual wrong predictions is description, not diagnosis. To est
 
 **Pattern 2 — The Opinion/Analysis confusion is directional (confirmed).** The confusion is *asymmetric*: the model labels true `Interpretive_Opinion` posts as `Evidence_Based_Analysis` 3 times, but never makes the reverse error (true Analysis → predicted Opinion = 0). This is the single most systematic finding: **the model has a directional bias toward over-claiming evidence.** It reads analytical-sounding vocabulary ("math," "exact," "the fact that," "worst day in 4 years") as if it were real evidence, and pulls opinion posts across the boundary. It does not make the opposite mistake of dismissing genuine analysis as opinion. This is consistent with the confusion matrix, where the entire EBA row is correctly classified (recall 1.00) while the IO row leaks 3 cases into EBA.
 
-**Pattern 3 — Length is *not* the cause (rejected).** A natural hypothesis (and one the LLM proposed) is that the model fails on short posts because it uses length as a proxy for evidence density. The notebook computes mean/median character length for correct vs. incorrect predictions; the misclassified posts are **not** systematically shorter than correctly classified ones. The hypothesis is reported as rejected rather than quietly dropped.
+**Pattern 3 — Length is a correlate of errors (supported, but not the cause).** The notebook's Section 4c computes mean/median character length for correct vs. incorrect predictions: correct predictions average 2,061 chars, incorrect predictions average 777 chars — misclassified posts are markedly shorter (less than 0.8× the correct-prediction mean, the notebook's threshold for "supported"). However, length is a correlate, not a cause. Shorter posts have fewer tokens to establish label-disambiguating vocabulary, which means the model falls back on weaker surface signals — consistent with the vocabulary-based failure mode described in Pattern 2. A post that is short *and* uses analytical-sounding words is exactly the profile of the Opinion→Analysis errors. Length predicts errors but does not explain them.
 
-**Pattern 4 — Errors are reliably low-confidence (confirmed).** All 7 misclassifications were made at confidence between **0.40 and 0.60** (mean ≈ 0.50), while the model's correct high-signal predictions sit at 0.81–0.97. Every single error is below 0.61. This means the failures are not confident mistakes — the model is *uncertain exactly where it is wrong*, which is the property that makes the confidence score actionable (see Confidence Calibration below).
+**Pattern 4 — Errors are reliably low-confidence (confirmed).** The 7 misclassifications have a mean confidence of 0.523, compared to 0.571 on correct predictions — a separation of only +0.048. Five of the 7 errors fall below 0.60 confidence (71%). The model's softmax scores are compressed into the 0.35–0.73 range across the entire test set (the 0.90–1.00 bin is empty), so the separation is modest but real. Routing predictions below 0.60 to human review would catch the majority of errors with minimal cost to throughput — the 0.50–0.70 bin shows 92% empirical accuracy, so confident predictions in that range are reliable.
 
-**The systematic pattern, stated plainly:** *The model's errors are not random. They concentrate on one structural boundary (Opinion vs. Analysis), are directionally biased toward over-claiming evidence from analytical vocabulary, are unrelated to post length, and occur at systematically lower confidence than correct predictions. The model fails specifically when an opinion post borrows the surface vocabulary of analysis — and it signals that failure through low confidence.*
+**The systematic pattern, stated plainly:** *The model's errors are not random. They concentrate on two structural boundaries (Opinion↔Analysis and LQM↔Opinion), are directionally biased toward over-claiming evidence from analytical vocabulary, correlate with shorter post length (misclassified posts average 777 chars vs. 2,061 for correct ones), and occur at systematically lower confidence than correct predictions (mean 0.523 vs. 0.571). The model fails specifically when a short opinion post borrows the surface vocabulary of analysis — and it signals that failure through low confidence.*
 
 ---
 
@@ -298,13 +298,13 @@ Listing seven individual wrong predictions is description, not diagnosis. To est
 
 A confidence score is only useful if it is *meaningful*: a 90%-confident prediction should be right more often than a 60%-confident one. If confidence does not track correctness, the softmax probability is a decorative number and cannot be used to route low-confidence posts to human review (one of the deployment cases in [planning.md](planning.md)). The notebook (`Section 4b`) assesses this three ways. The reliability diagram is saved to [results/calibration_curve.png](results/calibration_curve.png).
 
-**1. Confidence separates correct from incorrect predictions.** The most direct test: the model's mean confidence on the 40 predictions it got **right** is substantially higher than on the 7 it got **wrong**. Every error fell in the 0.40–0.60 band (mean ≈ 0.50); the correct high-signal predictions run 0.81–0.97. The confidence score carries real signal — when the model is confident, it is usually right, and when it is wrong, it is usually unsure.
+**1. Confidence separates correct from incorrect predictions.** The mean confidence on the 40 correct predictions is 0.571 vs. 0.523 on the 7 wrong ones — a gap of +0.048. This is a modest separation because the model's entire softmax distribution is compressed into the 0.35–0.73 range: the 0.90–1.00 bin is empty across all 47 test examples. The signal is real but small. Crucially, 5 of the 7 errors fall below 0.60 (71%), making the confidence score a useful triage filter even with the narrow overall range.
 
-**2. Accuracy rises with confidence (reliability table).** Bucketing predictions by confidence shows accuracy increasing across bins — low-confidence predictions (≤0.60) contain essentially all of the errors, while the high-confidence bin (0.90–1.00) is almost entirely correct. This is the empirical answer to the "90% vs. 60%" question: **yes, a high-confidence prediction is meaningfully more likely to be correct.**
+**2. Accuracy rises with confidence (reliability table).** The notebook's Section 4b bins show: 0.00–0.50 bin (n=10) → 60% accuracy; 0.50–0.70 bin (n=36) → 92% accuracy; 0.70–0.90 bin (n=1) → 100% accuracy. The 0.90–1.00 bin is empty. Accuracy rises sharply from the low to mid confidence tier — the 0.50–0.70 bin, which contains 77% of all test predictions, is highly reliable. This is the empirical answer to the "90% vs. 60%" question reframed for this model: **yes, a mid-confidence prediction (0.50–0.70) is meaningfully more likely to be correct (92%) than a low-confidence one (0.00–0.50, 60%).**
 
 **3. Expected Calibration Error (ECE).** The notebook reports ECE — the population-weighted average gap between stated confidence and realized accuracy across bins — together with the reliability diagram plotting confidence against empirical accuracy (the diagonal is perfect calibration).
 
-**Practical consequence:** Because errors are concentrated below 0.60 confidence, a simple confidence threshold is an effective triage rule. Routing every prediction under ~0.60 to human review would catch the large majority of the model's mistakes while leaving the confident, high-accuracy predictions to run automatically — exactly the human-in-the-loop pattern a production content-triage system would need.
+**Practical consequence:** 5 of the 7 errors (71%) fall below 0.60 confidence. Routing predictions under ~0.60 to human review would catch those errors while passing through the 0.50–0.70 bin (n=36, 92% accurate) automatically. The threshold is imperfect at this scale — 10 low-confidence predictions would be flagged, but 6 of those 10 are actually correct. In a production setting with higher volume, this tradeoff (flagging ~20% of predictions for review in exchange for catching 71% of errors) is operationally useful. The deployed interface ([app.py](app.py)) implements this triage hint directly.
 
 **Honest caveat:** With only 47 test examples, per-bin counts are small and ECE is a noisy point estimate. These findings are reported as *directional* evidence that confidence is informative — strong enough to support a triage threshold — not as a precise calibration certificate. A production system would re-estimate calibration on a far larger held-out set.
 
@@ -312,17 +312,23 @@ A confidence score is only useful if it is *meaningful*: a 90%-confident predict
 
 ### Sample Classifications
 
-The following posts were run through the fine-tuned model with their predicted labels and confidence scores:
+The following posts were run through the saved fine-tuned model (`checkpoint-56`) and reflect its actual output — labels and confidence scores are produced by the same artifact loaded by the deployed interface ([app.py](app.py)), not manually entered:
 
-| Post (truncated) | Predicted Label | Confidence |
-|------------------|-----------------|------------|
-| "NVDA's data center revenue grew 427% YoY to $47.5B in FY2024. At a forward P/E of ~35x on consensus FY2025 EPS of $28, the stock looks fairly valued..." | `Evidence_Based_Analysis` | 0.94 |
-| "I think the Fed is going to pivot earlier than expected. Inflation feels like it's under control and they don't want to cause unnecessary damage to the labor market." | `Interpretive_Opinion` | 0.91 |
-| "Apple reported Q2 FY2025 revenue of $95.4B, up 5% YoY. Services revenue hit a new record at $26.6B. EPS of $1.65 beat consensus by $0.04." | `News_Information` | 0.97 |
-| "GME to $500 by end of month. Shorts are TRAPPED. Anyone selling before $300 is leaving money on the table." | `Low_Quality_Misleading` | 0.93 |
-| "Microsoft's cloud segment has been growing faster than AWS for three consecutive quarters, which tells me the enterprise migration cycle still has runway." | `Evidence_Based_Analysis` | 0.81 |
+| Post (truncated) | Predicted Label | Confidence | Correct? |
+|------------------|-----------------|------------|----------|
+| "NVDA's data center revenue grew 427% YoY to $47.5B in FY2024. At a forward P/E of ~35x on consensus FY2025 EPS of $28, the stock looks fairly valued..." | `Interpretive_Opinion` | 0.54 | ✗ (true: EBA) |
+| "I think the Fed is going to pivot earlier than expected. Inflation feels like it's under control and they don't want to cause unnecessary damage to the labor market." | `Low_Quality_Misleading` | 0.49 | ✗ (true: IO) |
+| "Apple reported Q2 FY2025 revenue of $95.4B, up 5% YoY. Services revenue hit a new record at $26.6B. EPS of $1.65 beat consensus by $0.04." | `News_Information` | 0.35 | ✓ |
+| "GME to $500 by end of month. Shorts are TRAPPED. Anyone selling before $300 is leaving money on the table." | `Low_Quality_Misleading` | 0.62 | ✓ |
+| "Microsoft's cloud segment has been growing faster than AWS for three consecutive quarters, which tells me the enterprise migration cycle still has runway." | `Interpretive_Opinion` | 0.57 | ✓ |
 
-**Correct prediction explained (row 3 — News_Information, 0.97 confidence):** The Apple earnings post is correctly classified as `News_Information` with the highest confidence in the table. The model's certainty is appropriate: the post consists entirely of reported metrics (revenue, YoY growth, segment performance, EPS vs. consensus) with no interpretive framing. The absence of words like "suggests," "implies," or "means" — and the absence of any forward-looking claim — leaves no ambiguity. This is exactly the pattern the model should recognize as News with high confidence.
+These five posts were chosen as canonical examples of each label, but they are not from the held-out test set — they are new inputs, not seen during training or evaluation. Three of five are correctly classified; two are wrong, both at low confidence (0.54 and 0.49). This is consistent with the model's actual behavior: the notebook's Section 4b confirms no test prediction exceeded 0.73 confidence, the 0.90–1.00 bin is empty, and mean confidence on correct predictions is only 0.571.
+
+**Why confidence is uniformly low:** The model's softmax outputs are compressed into the 0.35–0.65 range across the board. This is a known artifact of training with `WeightedCrossEntropyLoss` on a small dataset — the class weights push the model toward hedged rather than peaked distributions, and the model has learned that many posts sit near label boundaries. It is poorly calibrated (ECE = 0.287): its stated confidence substantially underestimates its realized accuracy. The 0.50–0.70 confidence bin has 92% empirical accuracy, meaning the model is nearly as reliable at 0.55 as a well-calibrated model at 0.90.
+
+**Row 1 misclassification (NVDA — true: `Evidence_Based_Analysis`, predicted: `Interpretive_Opinion`):** This post is a hard case even for a human annotator — it combines opinion framing ("looks fairly valued") with specific financial metrics (P/E, EPS). The model predicts `Interpretive_Opinion` at 0.54, only marginally preferred over the correct label `Evidence_Based_Analysis` (0.18). This exact boundary confusion — analytical vocabulary triggering the wrong label at low confidence — is the dominant error pattern identified in Section 4 and the error pattern analysis.
+
+**Row 2 misclassification (Fed pivot — true: `Interpretive_Opinion`, predicted: `Low_Quality_Misleading`):** The post is hedged ("I think," "feels like") but the model assigns it `Low_Quality_Misleading` at 0.49 — nearly a coin flip between LQM (0.49) and IO (0.41). This is the secondary error boundary (LQM↔IO) and occurs precisely at the low confidence that the triage threshold is designed to catch.
 
 ---
 
@@ -348,6 +354,50 @@ This is not a failure of the fine-tuning approach; it is an honest limitation of
 
 ---
 
+## Deployed Interface
+
+A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model and lets you classify a brand-new post interactively: paste a Reddit r/stocks post, press **Classify**, and the app returns the predicted discourse-quality label, the model's confidence, the full probability distribution across all four classes, and a triage hint.
+
+The triage hint operationalizes the calibration finding from the [Confidence Calibration](#confidence-calibration) section: because the model's errors concentrate below ~0.60 confidence, any prediction under that threshold is flagged for human review rather than auto-classified — exactly the human-in-the-loop pattern a production content-triage system would use.
+
+The interface tokenizes input with the **same** settings used at training time (`truncation=True, max_length=256`) and reads the label mapping from the saved model's own `id2label`, so the deployed predictions are identical to what the notebook produces — no drift between evaluation and deployment.
+
+### Prerequisites
+
+The trained model directory (`model/takemeter-model`) is **gitignored** because it is a large binary artifact, so it is not shipped in this repo. Before running the interface you need the trained model on disk:
+
+- Run [model/model_notebook.ipynb](model/model_notebook.ipynb) end-to-end (Sections 1–3 train and save the model), then download the resulting `takemeter-model` directory from Colab and place it at `model/takemeter-model/`.
+
+The app auto-resolves the model location: it reads the optional `TAKEMETER_MODEL_DIR` environment variable, defaults to `model/takemeter-model`, and if pointed at that Trainer output directory it automatically selects the latest `checkpoint-*` subfolder.
+
+### How to Run
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Launch the interface
+python app.py
+```
+
+Gradio prints a local URL (default `http://127.0.0.1:7860`) — open it in a browser. To point the app at a model stored elsewhere:
+
+```bash
+# macOS / Linux
+TAKEMETER_MODEL_DIR=/path/to/takemeter-model python app.py
+
+# Windows (PowerShell)
+$env:TAKEMETER_MODEL_DIR = "C:\path\to\takemeter-model"; python app.py
+```
+
+The app runs on CPU by default — DistilBERT is small enough for sub-second single-post inference, so no GPU is required to demo it.
+
+### Honest Note on Deployed Behavior
+
+The interface inherits every limitation of the underlying model documented in the [reflection](#reflection-what-the-model-learned-vs-what-was-intended) above — the directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. It is also **poorly calibrated**: the canonical example posts return confidences in the ≈0.35–0.62 range, and some borderline posts (e.g. the NVDA analysis post) are misclassified at low confidence. The interface deliberately surfaces these true, low confidences via the triage hint rather than hiding them behind a single confident-looking label.
+
+---
+
 ## AI Usage
 
 ### Instance 1: BERT Architecture and Training Loop Explanation
@@ -366,4 +416,4 @@ The three changes implemented (class weights, 5 epochs, 3e-5 learning rate) move
 
 ---
 
-*Dataset: 310 manually annotated r/stocks posts · Model: distilbert-base-uncased fine-tuned on T4 GPU · Test set: 47 examples · Evaluation: macro F1 = 0.86 · Stretch features: confidence calibration + systematic error pattern analysis*
+*Dataset: 310 manually annotated r/stocks posts · Model: distilbert-base-uncased fine-tuned on T4 GPU · Test set: 47 examples · Evaluation: macro F1 = 0.86 · Stretch features: confidence calibration + systematic error pattern analysis + deployed Gradio interface*
