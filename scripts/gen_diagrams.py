@@ -1,15 +1,37 @@
-"""One-off generator for the TakeMeter architecture diagrams. Reflects the real stack.
+"""gen_diagrams.py - One-Time generator for the TakeMeter architecture diagrams.
 
-Produces two PNGs in this same directory:
-  1. Model-Architecture.png  - the fine-tuned DistilBERT classifier (model/model_notebook.ipynb)
-  2. Repo-Architecture.png    - the whole repo: data -> training -> trained model -> Gradio UI
+Produces two PNG diagrams in the scripts/ directory that document the project's
+architecture at two levels of detail:
 
-Run: python scripts/gen_diagrams.py  from the repo root.
-Requires Pillow (PIL) and the Windows fonts referenced below.
+  1. Model-Architecture.png — the fine-tuned DistilBERT classification pipeline:
+     input text → WordPiece tokenizer → embedding layer → 6-layer transformer encoder
+     → [CLS] pooling → pre-classifier Linear → classification head Linear(768→4)
+     → softmax probabilities. Includes the training configuration footer (dataset
+     split, WeightedTrainer class weights, optimizer schedule, test-set metrics).
+
+  2. Repo-Architecture.png — the full repository pipeline:
+     labeled CSV → fine-tuning notebook (Colab/T4) vs. Groq zero-shot baseline →
+     saved checkpoint-56 → Gradio inference app → browser user. Includes the
+     committed results/ artifacts panel.
+
+Both diagrams are rendered with Pillow using a dark background palette. Layout
+helpers make_box() and make_varrow() are returned as closures capturing the
+ImageDraw instance so each diagram gets its own independent drawing surface.
+font() and center() are module-level utilities shared by both diagrams.
+
+The Windows TrueType fonts (Arial, Arial Bold, Consolas) are hardcoded paths under
+C:/Windows/Fonts/; running this on a non-Windows machine requires substituting
+compatible font files.
+
+Run with:
+    python scripts/gen_diagrams.py
+
+from the repo root. Output files are written alongside this script in scripts/.
+Requires: Pillow (pip install pillow).
 """
 from PIL import Image, ImageDraw, ImageFont
 
-# ── Shared palette / fonts ────────────────────────────────────────────────
+# ── Shared Palette / Fonts ────────────────────────────────────────────────
 BG = (23, 23, 26)
 INK = (235, 236, 238)
 SUB = (188, 192, 200)
@@ -21,6 +43,15 @@ FM = "C:/Windows/Fonts/consola.ttf"
 
 
 def font(path, size):
+    """Load a TrueType font from the given path at the given point size.
+
+    Args:
+        path (str): Absolute path to the .ttf font file.
+        size (int): Point size to load.
+
+    Returns:
+        ImageFont.FreeTypeFont: The loaded font object.
+    """
     return ImageFont.truetype(path, size)
 
 
@@ -36,11 +67,37 @@ f_smallmono = font(FM, 12)
 
 
 def center(draw, cx, y, text, fnt, fill):
+    """Draw text horizontally centered on the given x coordinate.
+
+    Args:
+        draw (ImageDraw.ImageDraw): The draw context to render into.
+        cx (float): The x coordinate of the desired center.
+        y (float): The top y coordinate for the text baseline.
+        text (str): The string to render.
+        fnt (ImageFont.FreeTypeFont): The font to use.
+        fill (tuple[int, int, int]): RGB fill color.
+    """
     w = draw.textlength(text, font=fnt)
     draw.text((cx - w / 2, y), text, font=fnt, fill=fill)
 
 
 def make_box(d):
+    """Return a box drawing closure bound to the given ImageDraw context.
+
+    The returned box() function draws a rounded rectangle with an optional
+    title, subtitle, and list of detail lines, stacking them vertically from
+    the top of the box. All text is either centered or left-aligned depending
+    on the align_center flag.
+
+    Args:
+        d (ImageDraw.ImageDraw): The draw context to bind the closure to.
+
+    Returns:
+        Callable: box(x, y, w, h, fill, title, lines, *, title_font,
+            line_font, title_fill, line_fill, radius, align_center, sub)
+            that draws one diagram block and returns its bounding rect as
+            (x, y, x+w, y+h).
+    """
     def box(x, y, w, h, fill, title=None, lines=None, *, title_font=f_stage,
             line_font=f_detail, title_fill=INK, line_fill=(225, 228, 234),
             radius=14, align_center=True, sub=None):
@@ -70,6 +127,21 @@ def make_box(d):
 
 
 def make_varrow(d):
+    """Return a vertical arrow drawing closure bound to the given ImageDraw context.
+
+    The returned varrow() function draws a downward-pointing arrow (line + filled
+    triangle head) between two y coordinates, with an optional pill label centered
+    on the shaft.
+
+    Args:
+        d (ImageDraw.ImageDraw): The draw context to bind the closure to.
+
+    Returns:
+        Callable: varrow(cx, y0, y1, label=None) that draws one connector arrow.
+            cx is the horizontal center; y0 and y1 are the top and bottom y
+            coordinates; label is an optional string drawn on a dark background
+            pill beside the shaft.
+    """
     def varrow(cx, y0, y1, label=None):
         d.line([cx, y0, cx, y1], fill=ARROW, width=3)
         d.polygon([(cx - 7, y1 - 10), (cx + 7, y1 - 10), (cx, y1)], fill=ARROW)
@@ -87,6 +159,21 @@ def make_varrow(d):
 # DIAGRAM 1 — Fine-tuned DistilBERT model architecture
 # ===========================================================================
 def gen_model_diagram(out_path):
+    """Render the fine-tuned DistilBERT model architecture diagram and save it as a PNG.
+
+    Draws the full inference pipeline from raw input text through the WordPiece
+    tokenizer, embedding layer, 6-layer transformer encoder, [CLS] pooling,
+    pre-classifier Linear, and classification head to the four output classes.
+    A side panel annotates fine-tuning scope (all backbone layers trainable) and
+    a footer panel summarizes the training configuration (dataset split, class
+    weights, optimizer schedule, and test-set metrics).
+
+    Args:
+        out_path (str | os.PathLike): Destination path for the output PNG.
+
+    Side effects:
+        Writes a 1180×1500 PNG to out_path and prints the path and size to stdout.
+    """
     W, H = 1180, 1500
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
@@ -97,7 +184,7 @@ def gen_model_diagram(out_path):
     BW = 600
     LX = CX - BW / 2
 
-    # palette
+    # Palette
     C_IN = (38, 110, 74)      # green  - input text
     C_TOK = (31, 111, 92)     # teal   - tokenizer
     C_EMB = (74, 62, 140)     # indigo - embeddings
@@ -141,7 +228,7 @@ def gen_model_diagram(out_path):
                "LayerNorm  +  dropout (0.1)"])
     varrow(CX, y + 100, y + 100 + 40, "768-d token vectors")
 
-    # ---- Transformer encoder --------------------------------------------
+    # ---- Transformer Encoder --------------------------------------------
     y = 548
     box(LX, y, BW, 168, C_ENC,
         title="Transformer Encoder  x6 layers",
@@ -151,7 +238,7 @@ def gen_model_diagram(out_path):
                "Feed-Forward  (hidden_dim = 3072, GELU)",
                "Add & LayerNorm",
                "-> contextual hidden states  [seq_len x 768]"])
-    # left annotation - what is frozen / trained
+    # Left Annotation - what is frozen / trained
     box(20, y + 14, 230, 140, C_SIDE,
         title="Fine-tuning", title_font=f_smallb,
         lines=["full backbone weights",
@@ -164,7 +251,7 @@ def gen_model_diagram(out_path):
         line_font=f_small, align_center=False)
     varrow(CX, y + 168, y + 168 + 40, "[CLS] hidden state (768-d)")
 
-    # ---- Pooled rep / pre-classifier ------------------------------------
+    # ---- Pooled Rep / Pre-Classifier ------------------------------------
     y = 796
     box(LX, y, BW, 96, C_POOL,
         title="Pooled Representation",
@@ -173,7 +260,7 @@ def gen_model_diagram(out_path):
                "dropout (seq_classif_dropout = 0.2)"])
     varrow(CX, y + 96, y + 96 + 40, "768-d pooled vector")
 
-    # ---- Classification head --------------------------------------------
+    # ---- Classification Head --------------------------------------------
     y = 932
     box(LX, y, BW, 92, C_HEAD,
         title="Classification Head",
@@ -191,7 +278,7 @@ def gen_model_diagram(out_path):
                "argmax = predicted label  .  max softmax = confidence"],
         title_font=f_stage, line_font=f_small)
 
-    # ---- Training config (full-width footer panel) ----------------------
+    # ---- Training Config (full-width footer panel) ----------------------
     y = 1210
     box(20, y, W - 40, 210, C_TRAIN,
         title="Training configuration  (Hugging Face Trainer)", title_font=f_smallb,
@@ -217,9 +304,23 @@ def gen_model_diagram(out_path):
 
 
 # ===========================================================================
-# DIAGRAM 2 — Whole-repo architecture
+# DIAGRAM 2 — Whole Repository Architecture
 # ===========================================================================
 def gen_repo_diagram(out_path):
+    """Render the whole repository architecture diagram and save it as a PNG.
+
+    Draws the end-to-end project pipeline: labeled CSV dataset → fine-tuning
+    notebook (Colab/T4) with a Groq zero-shot baseline comparison → saved
+    checkpoint-56 artifact → Gradio inference app → browser user. A footer panel
+    lists the committed results/ artifacts (evaluation JSON, confusion matrix,
+    calibration curve) and their key metrics.
+
+    Args:
+        out_path (str | os.PathLike): Destination path for the output PNG.
+
+    Side effects:
+        Writes a 1320×1360 PNG to out_path and prints the path and size to stdout.
+    """
     W, H = 1320, 1360
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
@@ -254,7 +355,7 @@ def gen_repo_diagram(out_path):
                "4 classes (Opinion 116 . News 68 . LQM 65 . Analysis 61)"])
     varrow(CX, y + 84, y + 84 + 36, "CSV upload")
 
-    # ---- Notebook / training pipeline -----------------------------------
+    # ---- Notebook / Training Pipeline -----------------------------------
     y = 264
     box(LX, y, BW, 168, C_NB,
         title="Fine-Tuning Notebook  (Colab / T4 GPU)",
@@ -264,7 +365,7 @@ def gen_repo_diagram(out_path):
                "3. WeightedTrainer fine-tunes distilbert-base-uncased (5 epochs, lr 3e-5)",
                "4. Evaluate on locked test set  .  confusion matrix . calibration . error analysis",
                "5. Compare vs. Groq zero-shot baseline  .  export artifacts"])
-    # right annotation - Groq baseline
+    # Right Annotation - Groq baseline
     box(980, y + 24, 320, 128, C_BASE,
         title="Zero-shot baseline", title_font=f_smallb,
         lines=["groq  .  llama-3.3-70b-versatile",
@@ -279,7 +380,7 @@ def gen_repo_diagram(out_path):
                (CX + BW / 2, y + 84)], fill=ARROW)
     varrow(CX, y + 168, y + 168 + 40, "saved model + results")
 
-    # ---- Trained model artifact -----------------------------------------
+    # ---- Trained Model Artifact -----------------------------------------
     y = 512
     box(LX, y, BW, 120, C_MODEL,
         title="Trained Model  (checkpoint-56)",
@@ -289,7 +390,7 @@ def gen_repo_diagram(out_path):
                "tokenizer.json + vocab  .  trainer_state.json"])
     varrow(CX, y + 120, y + 120 + 40, "load weights + tokenizer")
 
-    # ---- Gradio app ------------------------------------------------------
+    # ---- Gradio App ------------------------------------------------------
     y = 672
     box(LX, y, BW, 178, C_APP,
         title="Gradio Inference App",
@@ -299,7 +400,7 @@ def gen_repo_diagram(out_path):
                "gr.Label: confidence across all 4 classes",
                "triage hint vs. REVIEW_THRESHOLD = 0.60 (calibration-derived)",
                "gr.Examples: boundary + clear cases  .  Blocks UI (Textbox + Button)"])
-    # left annotation - deps
+    # Left Annotation - deps
     box(20, y + 30, 230, 120, C_SIDE,
         title="Runtime deps", title_font=f_smallb,
         lines=["gradio >= 4.0",
@@ -319,7 +420,7 @@ def gen_repo_diagram(out_path):
                "auto-classify vs. route-to-human triage hint"],
         title_font=f_stage, line_font=f_small)
 
-    # ---- Outputs / artifacts panel --------------------------------------
+    # ---- Outputs / Artifacts Panel --------------------------------------
     y = 1024
     box(20, y, W - 40, 150, C_OUT,
         title="Committed artifacts  (results/)", title_font=f_smallb,
