@@ -451,7 +451,7 @@ The fine-tuned model's softmax probabilities on the 47-example test set (`ft_pro
 
 **Methodology:**
 
-A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model from the saved `model/takemeter-model` checkpoint with `AutoModelForSequenceClassification.from_pretrained`, tokenizes the input post with the *same* settings the notebook used at training time (`truncation=True, max_length=256`), runs a forward pass, and applies `softmax` to the logits. It then displays:
+A [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model from the saved `model/takemeter-model` checkpoint with `AutoModelForSequenceClassification.from_pretrained`, tokenizes the input post with the *same* settings the notebook used at training time (`truncation=True, max_length=256`), runs a forward pass, and applies `softmax` to the logits. It then displays:
 
 1. **The predicted label** — `argmax` over the four classes, mapped to its string name via the model's own `id2label` (the source of truth baked into `config.json`).
 2. **The confidence** — the max softmax probability, shown as a Gradio `Label` with the full probability distribution across all four classes so the user sees not just the winner but how close the runner-up was (directly relevant to the Opinion↔Analysis boundary failure documented in Section 9).
@@ -468,3 +468,43 @@ A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the
 **Verification:** The app was verified by loading the saved best checkpoint (`checkpoint-56`, epoch 4, validation accuracy 0.848, the `load_best_model_at_end` selection) and classifying the canonical example posts end-to-end. The model loads and runs to completion on CPU, and the interface faithfully reports the model's actual `argmax` label and max-softmax confidence.
 
 **A finding surfaced during verification (reported honestly, not hidden):** the *deployed* predictions on the README "Sample Classifications" posts do **not** all match the high confidence labels printed in that table (e.g. the NVDA data center post is predicted `Interpretive_Opinion` at 0.54, not `Evidence_Based_Analysis` at 0.94). This is consistent with the model's *own* calibration data already documented in Section 8 / the README. Mean confidence on correct predictions is only ~0.57 and ECE is 0.287, so the model is poorly calibrated and rarely produces the 0.9+ confidences that table reports. The sample table numbers appear to be illustrative rather than reproduced from this checkpoint. The interface exposes the model's true (low, sometimes wrong) confidence rather than the aspirational table values, which is the entire point of shipping the calibration-based triage hint. Running instructions are documented in the README.
+
+---
+
+## 13. Software Architecture: Separation of Concerns
+
+**Purpose:** The original `app.py` mixed four distinct concerns in a single file: model loading, the triage threshold business rule, Gradio UI layout, and the curated example data. Its `classify()` function simultaneously handled input validation, tokenization, model inference, confidence formatting, and triage hint generation. This worked while the app was small, but it meant the classification logic could not be reused (e.g. in a batch script or an API endpoint) without extracting it, and it could not be unit tested without importing and running Gradio.
+
+**The refactor:** The classification logic was pulled out into a `takemeter/` package with four modules, each with a single responsibility:
+
+- `takemeter/model_loader.py` holds `resolve_model_dir()` (path resolution: env var, default path, checkpoint auto-selection) and `load_model()` (loads the tokenizer, model, and `id2label` mapping).
+- `takemeter/inference.py` holds `predict()`, the pure "tokenize → forward pass → structured result" function. It returns a `PredictionResult` dataclass and has no knowledge of Gradio, Markdown, or display formatting of any kind.
+- `takemeter/formatting.py` holds `format_confidences()`, `format_summary()`, and `format_triage_hint()`, which turn a `PredictionResult` into the shapes the UI renders.
+- `takemeter/examples.py` holds the `EXAMPLES` list of curated sample posts.
+
+`app.py` is now a thin Gradio `Blocks` layout whose `classify()` callback is two lines: call `predict()`, then pass the result through `format_confidences()`/`format_summary()`.
+
+**Why this matters for testability:** The "predict" function (tokenize → forward pass → return structured result) is now separable from the "format for display" function. `predict()` can be tested with a fake tokenizer/model that never touches the real 250MB+ checkpoint, and `format_summary()`/`format_triage_hint()` can be tested against hand-built `PredictionResult` objects without running any model at all. Neither requires Gradio to be running. This is what makes the fast unit tests in Section 14 possible.
+
+**Design decision explicitly rejected:** Wrapping `classify()` in a try/except and adding defensive validation throughout was considered and rejected. The existing empty input guard in `predict()` is the only validation needed, since the rest of the pipeline (tokenizer, model, softmax) either works correctly on any string input or fails loudly with a real error, which is preferable to a silently swallowed one.
+
+---
+
+## 14. Test Suite
+
+**Purpose:** Before this change, the repository had no tests anywhere. Even a handful of simple assertions, does `resolve_model_dir()` raise the right error when the path is missing, does `predict()` return the expected empty input response, does the label mapping round-trip correctly, catch regressions and document expected behavior at low cost. Writing tests for the parts of the code that do not require the model weights (path resolution, input validation, output formatting) is exactly the low cost, high value work the Section 13 refactor was designed to unlock.
+
+**What is covered:** A pytest suite under `tests/` covers every module in the `takemeter/` package plus the labeled dataset itself:
+
+- `tests/test_model_loader.py` — path resolution logic (default path, env var override, checkpoint auto-selection by numeric suffix, and the missing model `FileNotFoundError` and its message).
+- `tests/test_inference.py` — `predict()` against a fake tokenizer/model fixture: empty, whitespace-only, and `None` input handling; argmax label selection; softmax distribution shape (sums to 1.0, includes all labels); and the `REVIEW_THRESHOLD` flag in both directions.
+- `tests/test_formatting.py` — `format_confidences()`, `format_summary()`, and `format_triage_hint()` against hand-built `PredictionResult` objects, including the empty-input prompt path and an unknown label edge case.
+- `tests/test_examples.py` — shape and uniqueness invariants of the curated `EXAMPLES` list.
+- `tests/test_data.py` — structural invariants of `data/data.csv`: expected columns, label taxonomy membership, no missing text/label values, unique ids, and the documented row count (310) and per-label distribution.
+- `tests/test_integration.py` — end-to-end integration tests that load the **real** fine-tuned checkpoint and run `predict()` → `format_*()` on it directly, plus an `app.py` import smoke test that confirms the Gradio `Blocks` demo builds without error.
+
+**Fast unit tests vs. real-model integration tests:** The unit tests use a small hand-built fake tokenizer/model (defined in `tests/conftest.py`) that mimics the Hugging Face call signature but returns fixed-shape dummy tensors. This keeps the majority of the suite fast (well under a second total) and independent of the 250MB+ trained checkpoint. The integration tests in `test_integration.py` are the only ones that load the real checkpoint from `model/takemeter-model`; since that directory is gitignored and not guaranteed to exist (e.g. on a fresh clone before the notebook has been run, or in a CI environment without the artifact), those tests are wrapped in a session scoped fixture that calls `pytest.skip()` rather than failing when the checkpoint is absent.
+
+**Verification:** The full suite (41 tests as of this writing) was run locally with the trained checkpoint present, all tests pass. The suite was also run with `TAKEMETER_MODEL_DIR` pointed at a nonexistent path to confirm the six real model integration tests skip cleanly (rather than error) when the checkpoint is unavailable, which is the expected behavior for a fresh clone or a CI runner.
+
+**Honest limitation:** These tests exercise structural correctness (path resolution, control flow, output shape, data integrity) and one end-to-end wiring check against the real model. They do not test model *accuracy* or *quality*, that is the job of the evaluation notebook and the metrics reported in Sections 5–11. A test suite for an ML system should not assert on specific model outputs being "correct" in a business sense, since the model's predictions are expected to be probabilistic and imperfect; the integration tests instead assert on structural properties (valid label, confidence in [0, 1], distribution sums to 1.0) that must hold regardless of which checkpoint is loaded.

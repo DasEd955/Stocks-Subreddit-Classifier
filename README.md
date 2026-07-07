@@ -390,7 +390,21 @@ The model rarely exceeds 0.70 confidence on any prediction. This is not a bug or
 
 ## Deployed Interface
 
-A single-file [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model and lets you classify a brand new post interactively: paste a Reddit r/stocks post, press **Classify**, and the app returns the predicted discourse quality label, the model's confidence, the full probability distribution across all four classes, and a triage hint.
+A [Gradio](https://www.gradio.app/) app ([app.py](app.py)) loads the fine-tuned model and lets you classify a brand new post interactively: paste a Reddit r/stocks post, press **Classify**, and the app returns the predicted discourse quality label, the model's confidence, the full probability distribution across all four classes, and a triage hint.
+
+### Code Architecture: Separation of Concerns
+
+The classification logic lives in a small `takemeter/` package, not in `app.py` itself. This split was made so the "predict" step (tokenize, forward pass, structured result) is independently testable and reusable, for example from a batch processing script or an API endpoint, without needing Gradio at all:
+
+| Module | Responsibility |
+|--------|-----------------|
+| [takemeter/model_loader.py](takemeter/model_loader.py) | `resolve_model_dir()` and `load_model()`. Finds the checkpoint on disk (env var, default path, or auto-selecting the latest `checkpoint-*`) and loads the tokenizer, model, and `id2label` mapping. |
+| [takemeter/inference.py](takemeter/inference.py) | `predict()`. Pure tokenize to forward pass to structured `PredictionResult`. No Gradio, no Markdown, no formatting. This is the function a batch script or API endpoint would call directly. |
+| [takemeter/formatting.py](takemeter/formatting.py) | `format_confidences()`, `format_summary()`, `format_triage_hint()`. Turns a `PredictionResult` into the shapes the UI renders (the `{label: confidence}` dict and the Markdown summary string). |
+| [takemeter/examples.py](takemeter/examples.py) | The eight curated example posts shown in the Gradio UI. |
+| [app.py](app.py) | Thin Gradio `Blocks` layout. Its `classify()` callback is a two-line call into `predict()` then `format_confidences()`/`format_summary()`. |
+
+Before this split, a single `classify()` function in `app.py` handled input validation, tokenization, model inference, confidence formatting, and triage hint generation all at once. That made the classification logic impossible to unit test without spinning up Gradio, and impossible to reuse without copy-pasting code out of a UI callback.
 
 The triage hint operationalizes the calibration finding from the [Confidence Calibration](#confidence-calibration) section: because the model's errors concentrate below ~0.60 confidence, any prediction under that threshold is flagged for human review rather than auto classified. This is exactly the human-in-the-loop pattern a production content triage system would use.
 
@@ -426,6 +440,28 @@ $env:TAKEMETER_MODEL_DIR = "C:\path\to\takemeter-model"; python app.py
 
 The app runs on CPU by default, DistilBERT is small enough for sub-second single-post inference, so no GPU is required to demo it. Alternatively, open `model_notebook.ipynb` in Google Colab & run with free T4 GPU. 
 
+### Tests
+
+A pytest suite lives under [tests/](tests/) and covers every module in the `takemeter/` package plus the labeled dataset:
+
+| File | Covers |
+|------|--------|
+| [tests/test_model_loader.py](tests/test_model_loader.py) | `resolve_model_dir()` path resolution: default path, env var override, checkpoint auto selection, and the missing model error message. |
+| [tests/test_inference.py](tests/test_inference.py) | `predict()` on a fake tokenizer/model: empty/whitespace/None input handling, argmax label selection, softmax distribution shape, and the review threshold flag. |
+| [tests/test_formatting.py](tests/test_formatting.py) | `format_confidences()`, `format_summary()`, and `format_triage_hint()` against hand-built `PredictionResult` objects. |
+| [tests/test_examples.py](tests/test_examples.py) | Shape and uniqueness of the curated `EXAMPLES` list used by the Gradio UI. |
+| [tests/test_data.py](tests/test_data.py) | Structural invariants of `data/data.csv`: expected columns, label taxonomy membership, no missing values, and the documented row count and label distribution. |
+| [tests/test_integration.py](tests/test_integration.py) | End-to-end `predict()` → `format_*()` calls against the **real** fine-tuned checkpoint, and an `app.py` import smoke test. |
+
+The unit tests (model_loader, inference, formatting, examples) use a small hand-built fake tokenizer/model (see `tests/conftest.py`) so they run in well under a second and do not require the trained checkpoint. The integration tests in `test_integration.py` load the actual checkpoint from `model/takemeter-model` and are automatically **skipped** (not failed) if that checkpoint is not present on disk, since it is gitignored and will be missing on a fresh clone before the notebook has been run.
+
+Run the suite with:
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
 ### Honest Note on Deployed Behavior
 
 The interface inherits every limitation of the underlying model documented in the [reflection](#reflection-what-the-model-learned-vs-what-was-intended) above. The directional Opinion→Analysis bias and the thin training signal for sarcastic `Low_Quality_Misleading` posts. It is also **poorly calibrated**: the canonical example posts return confidences in the ≈0.35–0.62 range, and some borderline posts (e.g. the NVDA analysis post) are misclassified at low confidence. The interface deliberately surfaces these true, low confidences via the triage hint rather than hiding them behind a single confident looking label.
@@ -444,7 +480,7 @@ Before implementing the fine-tuning cell, Claude was asked to explain how Distil
 
 After the initial training run produced ~50% accuracy (barely above random on four classes), Claude was asked, from the perspective of a senior ML engineer and financial analyst, to explain how class weighting works mechanically in a CrossEntropyLoss function and what other accuracy improvements would be appropriate given the dataset characteristics. Claude explained inverse frequency class weight computation, how the per-sample loss scaling interacts with gradient updates across a mini-batch, and why it prevents the model from collapsing to majority-class prediction. It also recommended increasing epochs (with `load_best_model_at_end` as a safety net against overfitting) and a modest learning rate increase to escape the flat training region.
 
-**What was changed or overridden:** Claude's initial weight formula suggestion used `n_samples / (n_classes * n_samples_per_class)` — standard inverse frequency. This was implemented directly as described. Claude also recommended label smoothing (epsilon=0.1) as an additional regularizer. This was tested and then removed: label smoothing reduced validation accuracy on this small dataset because the hard label signal is exactly what the model needs at 217 training examples — smoothing it was counterproductive. Claude's architectural suggestion (adding a dropout layer between pre-classifier and classifier) was also skipped; the `Trainer` + `WeightedTrainer` pattern was simpler and achieved the accuracy target without additional architectural changes.
+**What was changed or overridden:** Claude's initial weight formula suggestion used `n_samples / (n_classes * n_samples_per_class)` — standard inverse frequency. This was implemented directly as described. Claude also recommended label smoothing (epsilon=0.1) as an additional regularizer. This was tested and then removed: label smoothing reduced validation accuracy on this small dataset because the hard label signal is exactly what the model needs at 217 training examples. Smoothing it was counterproductive. Claude's architectural suggestion (adding a dropout layer between pre-classifier and classifier) was also skipped; the `Trainer` + `WeightedTrainer` pattern was simpler and achieved the accuracy target without additional architectural changes.
 
 The three changes implemented (class weights, 5 epochs, 3e-5 learning rate) moved final test accuracy from ~50% to **85.1%**.
 

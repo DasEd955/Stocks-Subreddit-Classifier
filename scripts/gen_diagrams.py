@@ -19,9 +19,11 @@ helpers make_box() and make_varrow() are returned as closures capturing the
 ImageDraw instance so each diagram gets its own independent drawing surface.
 font() and center() are module-level utilities shared by both diagrams.
 
-The Windows TrueType fonts (Arial, Arial Bold, Consolas) are hardcoded paths under
-C:/Windows/Fonts/; running this on a non-Windows machine requires substituting
-compatible font files.
+Font loading tries a short list of common TrueType font paths (Windows, then
+macOS, then Linux) and falls back to Pillow's built-in bitmap font with a
+printed warning if none are found. This keeps the script runnable on any OS
+and in CI, though the fallback font ignores the requested point size and
+diagram text will look smaller/plainer than the TrueType rendering.
 
 Run with:
     python scripts/gen_diagrams.py
@@ -37,22 +39,68 @@ INK = (235, 236, 238)
 SUB = (188, 192, 200)
 ARROW = (150, 154, 162)
 
-F = "C:/Windows/Fonts/arial.ttf"
-FB = "C:/Windows/Fonts/arialbd.ttf"
-FM = "C:/Windows/Fonts/consola.ttf"
+# Candidate paths per font role, checked in order. Covers Windows, macOS, and
+# common Linux (DejaVu is bundled with most distros' fontconfig packages).
+_FONT_CANDIDATES = {
+    "regular": [
+        "C:/Windows/Fonts/arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ],
+    "bold": [
+        "C:/Windows/Fonts/arialbd.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ],
+    "mono": [
+        "C:/Windows/Fonts/consola.ttf",
+        "/System/Library/Fonts/Supplemental/Andale Mono.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    ],
+}
+
+F = _FONT_CANDIDATES["regular"][0]
+FB = _FONT_CANDIDATES["bold"][0]
+FM = _FONT_CANDIDATES["mono"][0]
+
+_warned_fallback = False
 
 
 def font(path, size):
-    """Load a TrueType font from the given path at the given point size.
+    """Load a TrueType font at the given point size, with a portable fallback.
+
+    Tries the requested path first, then the other OS candidates for whichever
+    role that path belongs to (regular, bold, or mono), and finally falls back
+    to Pillow's built-in bitmap font if nothing on disk matches. The fallback
+    is logged once so a missing font set is visible instead of silently
+    changing the diagram's appearance.
 
     Args:
-        path (str): Absolute path to the .ttf font file.
-        size (int): Point size to load.
+        path (str): Absolute path to the preferred .ttf font file.
+        size (int): Point size to load. Ignored by the bitmap fallback.
 
     Returns:
-        ImageFont.FreeTypeFont: The loaded font object.
+        ImageFont.FreeTypeFont | ImageFont.ImageFont: The loaded font object.
     """
-    return ImageFont.truetype(path, size)
+    global _warned_fallback
+
+    role = next((r for r, paths in _FONT_CANDIDATES.items() if path in paths), None)
+    candidates = _FONT_CANDIDATES.get(role, [path]) if role else [path]
+
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+
+    if not _warned_fallback:
+        print(
+            "Warning: no TrueType fonts found from the known candidate paths. "
+            "Falling back to Pillow's default bitmap font; diagram text will "
+            "render smaller and without bold/mono styling."
+        )
+        _warned_fallback = True
+    return ImageFont.load_default()
 
 
 f_title = font(FB, 32)
@@ -319,9 +367,9 @@ def gen_repo_diagram(out_path):
         out_path (str | os.PathLike): Destination path for the output PNG.
 
     Side effects:
-        Writes a 1320×1360 PNG to out_path and prints the path and size to stdout.
+        Writes a 1320×1560 PNG to out_path and prints the path and size to stdout.
     """
-    W, H = 1320, 1360
+    W, H = 1320, 1560
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
     box = make_box(d)
@@ -343,20 +391,20 @@ def gen_repo_diagram(out_path):
     # ---- Title -----------------------------------------------------------
     center(d, W / 2, 26, "TakeMeter  -  Repository Architecture", f_title, INK)
     center(d, W / 2, 66,
-           "r/stocks discourse-quality classifier  .  data -> fine-tune -> trained model -> Gradio UI",
+           "r/stocks discourse-quality classifier  .  data -> fine-tune -> trained model -> takemeter/ -> Gradio UI",
            f_sub, SUB)
 
     # ---- Data ------------------------------------------------------------
     y = 108
-    box(LX, y, BW, 84, C_DATA,
+    box(LX, y, BW, 110, C_DATA,
         title="Labeled Dataset",
         sub="data/data.csv  .  data/data.xlsx",
         lines=["310 annotated r/stocks posts  .  columns: id, text, label, source",
                "4 classes (Opinion 116 . News 68 . LQM 65 . Analysis 61)"])
-    varrow(CX, y + 84, y + 84 + 36, "CSV upload")
+    varrow(CX, y + 110, y + 110 + 36, "CSV upload")
 
     # ---- Notebook / Training Pipeline -----------------------------------
-    y = 264
+    y = 290
     box(LX, y, BW, 168, C_NB,
         title="Fine-Tuning Notebook  (Colab / T4 GPU)",
         sub="model/model_notebook.ipynb",
@@ -381,7 +429,7 @@ def gen_repo_diagram(out_path):
     varrow(CX, y + 168, y + 168 + 40, "saved model + results")
 
     # ---- Trained Model Artifact -----------------------------------------
-    y = 512
+    y = 538
     box(LX, y, BW, 120, C_MODEL,
         title="Trained Model  (checkpoint-56)",
         sub="model/takemeter-model/checkpoint-56/  (gitignored)",
@@ -390,18 +438,19 @@ def gen_repo_diagram(out_path):
                "tokenizer.json + vocab  .  trainer_state.json"])
     varrow(CX, y + 120, y + 120 + 40, "load weights + tokenizer")
 
-    # ---- Gradio App ------------------------------------------------------
-    y = 672
-    box(LX, y, BW, 178, C_APP,
-        title="Gradio Inference App",
-        sub="app.py  (python app.py)",
-        lines=["resolve_model_dir(): TAKEMETER_MODEL_DIR env or latest checkpoint-*",
-               "tokenize (max_len 256)  ->  model.eval() forward  ->  softmax",
-               "gr.Label: confidence across all 4 classes",
-               "triage hint vs. REVIEW_THRESHOLD = 0.60 (calibration-derived)",
-               "gr.Examples: boundary + clear cases  .  Blocks UI (Textbox + Button)"])
+    # ---- takemeter/ package (model loading + inference + formatting) -----
+    y = 698
+    box(LX, y, BW, 214, C_APP,
+        title="takemeter/ package",
+        sub="model_loader.py  .  inference.py  .  formatting.py  .  examples.py",
+        lines=["model_loader.resolve_model_dir(): TAKEMETER_MODEL_DIR env or latest checkpoint-*",
+               "inference.predict(): tokenize (max_len 256) -> model.eval() forward -> softmax",
+               "  -> PredictionResult(label, confidence, confidences, needs_review)",
+               "formatting.format_confidences()/format_summary(): PredictionResult -> UI shapes",
+               "REVIEW_THRESHOLD = 0.60 (calibration-derived) drives needs_review",
+               "examples.EXAMPLES: boundary + clear case sample posts"])
     # Left Annotation - deps
-    box(20, y + 30, 230, 120, C_SIDE,
+    box(20, y + 40, 230, 120, C_SIDE,
         title="Runtime deps", title_font=f_smallb,
         lines=["gradio >= 4.0",
                "torch >= 2.0",
@@ -409,10 +458,21 @@ def gen_repo_diagram(out_path):
                "",
                "(requirements.txt)"],
         line_font=f_small, align_center=False)
-    varrow(CX, y + 178, y + 178 + 40, "label + confidence + triage")
+    varrow(CX, y + 214, y + 214 + 40, "predict() + format_*() results")
+
+    # ---- Gradio App (thin UI layer) --------------------------------------
+    y = 952
+    box(LX, y, BW, 130, C_APP,
+        title="Gradio UI Layer",
+        sub="app.py  (python app.py)",
+        lines=["Blocks layout (Textbox + Button + Label) calls",
+               "takemeter.inference.predict() then takemeter.formatting.format_*()",
+               "no model/business logic lives in app.py itself"],
+        title_font=f_stage, line_font=f_small)
+    varrow(CX, y + 130, y + 130 + 36, "label + confidence + triage")
 
     # ---- User ------------------------------------------------------------
-    y = 890
+    y = 1118
     box(LX, y, BW, 92, C_USER,
         title="User  (browser)",
         lines=["pastes an r/stocks post  ->  Classify",
@@ -421,22 +481,23 @@ def gen_repo_diagram(out_path):
         title_font=f_stage, line_font=f_small)
 
     # ---- Outputs / Artifacts Panel --------------------------------------
-    y = 1024
-    box(20, y, W - 40, 150, C_OUT,
-        title="Committed artifacts  (results/)", title_font=f_smallb,
+    y = 1250
+    box(20, y, W - 40, 190, C_OUT,
+        title="Committed artifacts  (results/)  +  tests/", title_font=f_smallb,
         lines=[
             "evaluation_results.json  -  baseline 0.809 . fine-tuned 0.851 . improvement +0.043 . label_map",
             "confusion_matrix.png     -  fine-tuned model on the 47-example test set",
             "calibration_curve.png    -  reliability diagram, ECE = 0.287",
+            "tests/  -  pytest suite over takemeter/ (fast, fake model) + real-model integration tests",
             "",
             "Docs: README.md (project write-up)  .  planning.md (taxonomy, label definitions, error analysis)",
         ],
         line_font=f_small, align_center=False)
 
     # ---- Footer ----------------------------------------------------------
-    center(d, W / 2, 1300,
+    center(d, W / 2, 1500,
            "Flow: annotate data -> fine-tune DistilBERT in notebook (vs. Groq baseline) "
-           "-> save checkpoint -> serve via Gradio app to the user",
+           "-> save checkpoint -> takemeter.predict()/format_*() -> serve via Gradio app to the user",
            f_small, SUB)
 
     img.save(out_path)
